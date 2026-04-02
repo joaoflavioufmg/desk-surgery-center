@@ -1,0 +1,19 @@
+# Testing
+pytest
+pytest-cov
+
+# Formatting & linting
+black
+isort
+flake8
+
+# Plotting (interactive)
+matplotlib
+
+# Packaging & release
+build
+twine
+
+# Documentation 
+mkdocs
+mkdocs-material

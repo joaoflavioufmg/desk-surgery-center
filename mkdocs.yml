@@ -1,0 +1,43 @@
+site_name: DESK — Discrete Event Simulation Kit
+site_description: Scientific framework for discrete-event simulation and experimental design
+site_author: João Flávio de Freitas Almeida
+site_url: https://desk-sim.readthedocs.io
+
+repo_name: joaoflavioufmg/desk
+repo_url: https://github.com/joaoflavioufmg/desk
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.instant
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Basic Example: basic_example.md
+  - Examples: examples.md
+  - Validation & V&V: validation.md
+  - Replication Analysis: replication.md
+  - Factorial Experiments: factorial.md
+  - Input Analysis (DistFit): input_analysis.md
+  - Project Structure: project_structure.md
+  - Citation: citation.md
+
+markdown_extensions:
+  - admonition
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+  - codehilite
+
+plugins:
+  - search
+  - include-markdown

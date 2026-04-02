@@ -1,0 +1,29 @@
+cff-version: 1.0.0
+title: "DESK: Discrete Event Simulation Kit"
+message: "If you use DESK in your research, please cite it as follows."
+type: software
+authors:
+  - family-names: "Almeida"
+    given-names: "João Flávio de Freitas"
+    affiliation: Federal University of Minas Gerais
+    orcid: https://orcid.org/0000-0002-3884-217X
+version: 1.1.4
+date-released: 2025-12-29
+doi: 10.5281/zenodo.18088013
+url: https://joaoflavioufmg.github.io/desk/
+license: GPL-3.0
+keywords:
+  - discrete-event simulation
+  - simulation
+  - SimPy
+  - operations research
+  - systems modeling
+preferred-citation:
+  type: software
+  authors:
+    - family-names: "Almeida"
+      given-names: "João Flávio de Freitas"
+  title: "DESK: Discrete Event Simulation Kit"
+  year: 2025
+  version: 1.0.0
+  doi: 10.5281/zenodo.18088013
