@@ -308,6 +308,10 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     Eq_Radiologia = model.add_resource("Eq_Radiologia", 4, "regular") 
     Func_CME = model.add_resource("Func_CME", 2, "regular") 
     Eq_Higienizacao = model.add_resource("Eq_Higienizacao", 2, "regular") 
+    
+    # Seize the Sala_CC resource at the start of occupancy (adm_conf_paciente_P12a15).
+    # Release it at the very end (limpeza_organizacao_P39).
+    Sala_CC = model.add_resource("Sala_CC", capacity=5, resource_type="regular")
 
 
     # ---------------------------------------------------------------
@@ -498,15 +502,30 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     )
     adm_conf_paciente_P11b.set_resource_name('Tec_Enfermagem')
 
-    # ProcessBlock block: Process with ONE resource
-    adm_conf_paciente_P12a15 = ProcessBlock(
-        "Adm_Conf_Pac", model.env,
-        resource=Tec_Enfermagem,        
-        delay_time=lambda: distribution('2_adm_e_conf_paciente'),
-        resource_units=1,                 
+    # ProcessBlock block: Process with ONE resource    
+    # adm_conf_paciente_P12a15 = ProcessBlock(
+    #     "Adm_Conf_Pac", model.env,
+    #     resource=Tec_Enfermagem,        
+    #     delay_time=lambda: distribution('2_adm_e_conf_paciente'),
+    #     resource_units=1,                 
+    #     event_logger=event_logger
+    # )
+    # adm_conf_paciente_P12a15.set_resource_name('Tec_Enfermagem')
+
+    # === REFACTORED: Start of Surgical Center Occupancy ===
+    adm_conf_paciente_P12a15 = MultiProcessBlock(
+        "Adm_Conf_Pac", model.env,        
+        resource_requirements={            
+            Tec_Enfermagem: 1,
+            Sala_CC: 1                     # <--- Enforces room capacity
+        },        
+        delay_time=lambda: distribution('2_adm_e_conf_paciente'),        
         event_logger=event_logger
-    )
-    adm_conf_paciente_P12a15.set_resource_name('Tec_Enfermagem')
+    )    
+    adm_conf_paciente_P12a15.set_resource_names({        
+        Tec_Enfermagem: 'Tec_Enfermagem',
+        Sala_CC: 'Sala_CC'
+    })
 
     # ProcessBlock block: Process with ONE resource
     adm_paciente_P1617 = ProcessBlock(
@@ -795,15 +814,29 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     limpeza_organizacao_P38.set_resource_name('Func_CME')
 
     # ProcessBlock block: Process with ONE resource
-    limpeza_organizacao_P39 = ProcessBlock(
-        "Limpa_Sala_CC", model.env,
-        resource=Eq_Higienizacao,        
-        delay_time=lambda: distribution('5_limpeza_local'),
-        resource_units=1,                 
-        event_logger=event_logger
-    )
-    limpeza_organizacao_P39.set_resource_name('Eq_Higienizacao')
+    # limpeza_organizacao_P39 = ProcessBlock(
+    #     "Limpa_Sala_CC", model.env,
+    #     resource=Eq_Higienizacao,        
+    #     delay_time=lambda: distribution('5_limpeza_local'),
+    #     resource_units=1,                 
+    #     event_logger=event_logger
+    # )
+    # limpeza_organizacao_P39.set_resource_name('Eq_Higienizacao')
    
+    # === REFACTORED: End of Surgical Center Occupancy ===
+    limpeza_organizacao_P39 = MultiProcessBlock(
+        "Limpa_Sala_CC", model.env,        
+        resource_requirements={            
+            Eq_Higienizacao: 1,
+            Sala_CC: 1                     # Will be released after this block
+        },        
+        delay_time=lambda: distribution('5_limpeza_local'),        
+        event_logger=event_logger
+    )    
+    limpeza_organizacao_P39.set_resource_names({        
+        Eq_Higienizacao: 'Eq_Higienizacao',
+        Sala_CC: 'Sala_CC'
+    })
 
     # MultiProcessBlock block: Process with MULTIPLE resources
     #proc_materiais_P40aP44 = MultiProcessBlock(
@@ -1397,6 +1430,7 @@ def main():
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Radiologia', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Func_CME', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Sala_CC', moving_average_window=50)
     plotter.plot_wip_over_time()
     plotter.plot_system_time_distribution()
 
