@@ -4,13 +4,12 @@
 import random
 import math
 import sys
-import simpy                          # ← required for the Sala_CC capacity gate
 from desk.stats.factorial import FactorialExperiment
 from desk.stats.replication import ReplicationFramework    
 from desk.analytics.financial import FinancialAnalyzer
 from desk.validation.resource_validator import ResourceValidator
 from desk.core.simulation_model import SimulationModel
-from desk.core.entity import Entity, EventLogger
+from desk.core.entity import EventLogger
 from desk.blocks.create_block import CreateBlock
 from desk.blocks.process_block import ProcessBlock, MultiProcessBlock
 from desk.blocks.decide_block import DecideBlock
@@ -310,146 +309,9 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     Func_CME = model.add_resource("Func_CME", 2, "regular") 
     Eq_Higienizacao = model.add_resource("Eq_Higienizacao", 2, "regular") 
     
-    # ═══════════════════════════════════════════════════════════════════════════
-    # OPERATING ROOM CAPACITY GATE  —  5 concurrent patients maximum
-    # ═══════════════════════════════════════════════════════════════════════════
-    #
-    #   P12a15 starts  →  Sala_CC seized  →  P12a15 ends  →  Sala_CC RELEASED
-    #   ... (all intermediate blocks: adm, surgery, cleanup)  ← UNCONSTRAINED
-    #   P39 starts     →  Sala_CC seized  →  P39 ends     →  Sala_CC RELEASED
-    #
-    # Between P12a15 and P39 the slot was free, allowing unlimited concurrency.
-    #
-    # WHY simpy.Container IS THE CORRECT TOOL
-    # ─────────────────────────────────────────
-    # simpy.Resource  →  request token must be released by the SAME SimPy
-    #                    process that acquired it (held via 'with req:').
-    #                    Each DESK block is its own process, so the token
-    #                    cannot survive a block transition.
-    #
-    # simpy.Container →  Container.get(1)  permanently decrements the count
-    #                    Container.put(1)  permanently increments the count
-    #                    get/put are STATELESS one-shot events: they can occur
-    #                    in completely DIFFERENT SimPy processes, spanning the
-    #                    entire P12a15 → P39 chain.
-    #
-    # FLOW CORRECT
-    # ────────────────────
-    #   ... → P11a/b → [seize_sala_cc] ─(blocks if 5 rooms busy)─►
-    #           → P12a15 → adm → surgery → cleanup → P39
-    #           → [release_sala_cc] → discharge
-    #
-    # sala_cc.level (0–5) = available rooms; in_use = 5 − level  (max 5)
-    # ═══════════════════════════════════════════════════════════════════════════
-    sala_CC = simpy.Container(model.env, capacity=5, init=5)
-
-    # ── Custom gateway blocks ──────────────────────────────────────────────────
-    # These two thin classes are the ONLY place Sala_CC logic lives.
-    # They do not interact with model.add_resource — they operate on the raw
-    # simpy.Container directly, which is the correct SimPy pattern for
-    # cross-block resource spanning.
-    #
-    # Implementation note
-    # ───────────────────
-    # The classes subclass ProcessBlock so they integrate naturally with DESK's
-    # model.add_block(), connect_to(), and event_logger machinery.
-    # They override only the entity-processing coroutine (run / _run / process —
-    # whichever name your DESK build uses; see the comment inside each class).
-    # ─────────────────────────────────────────────────────────────────────────
-
-    class SalaCC_Seize(ProcessBlock):
-        """
-        Gateway block placed between P11a/b and adm_conf_paciente_P12a15.
-
-        Behaviour
-        ─────────
-        • Calls sala_cc.get(1).  If the container level is 0 (all 5 rooms
-          occupied), the entity waits here until one room becomes free.
-        • Once sala_cc.get(1) succeeds, the level is decremented by 1 and
-          stays decremented until the matching SalaCC_Release fires put(1).
-        • Zero processing delay — the block is purely a gate, not a service.
-
-        The slot is held for the full duration of the patient's stay
-        (P12a15 through P39), not just while this block is active.
-        """
-        def __init__(self, name, env, container, event_logger=None):
-            super().__init__(name, env, delay_time=lambda: 0.0, resource=None, event_logger=event_logger)
-            self._sala_cc = container
-
-        def process_entity(self, entity: Entity):
-            entity.route_history.append(self.name)
-            
-            # Trace queue entry in console
-            self._trace('queue', entity, "Sala_CC", f"Waiting for operating room. Available: {self._sala_cc.level}")
-            
-            # 1. BLOCKS the process pipeline here until a room slot becomes free
-            yield self._sala_cc.get(1)
-            
-            # Trace successful allocation
-            self._trace('service_start', entity, "Sala_CC", f"Operating room secured. Remaining: {self._sala_cc.level}")
-            
-            if self.event_logger:
-                self.event_logger.log_event(
-                    case_id=entity.id,
-                    activity=self.name,
-                    timestamp=self.env.now,
-                    lifecycle='complete',
-                    resource="Sala_CC"
-                )
-            
-            # 2. Forward entity to the next block (adm_conf_paciente_P12a15)
-            self.env.process(self.send_to_next(entity))
-            yield self.env.timeout(0)
-
-    class SalaCC_Release(ProcessBlock):
-        """
-        Release block placed between limpeza_organizacao_P39 and discharge_srpa.
-
-        Behaviour
-        ─────────
-        • Calls sala_cc.put(1), which increments the container level back.
-        • put() never blocks (capacity is always ≥ in-use count).
-        • This unblocks the next patient waiting in SalaCC_Seize, if any.
-        • Zero processing delay — purely a signal, not a service step.
-        """
-        def __init__(self, name, env, container, event_logger=None):
-            super().__init__(name, env, delay_time=lambda: 0.0, resource=None, event_logger=event_logger)
-            self._sala_cc = container
-
-        def process_entity(self, entity: Entity):
-            entity.route_history.append(self.name)
-            
-            # 1. RETURN the operating room slot back to the pool
-            yield self._sala_cc.put(1)
-            
-            # Trace successful release
-            self._trace('service_end', entity, "Sala_CC", f"Operating room released. Available: {self._sala_cc.level}")
-            
-            if self.event_logger:
-                self.event_logger.log_event(
-                    case_id=entity.id,
-                    activity=self.name,
-                    timestamp=self.env.now,
-                    lifecycle='complete',
-                    resource="Sala_CC"
-                )
-            
-            # 2. Forward entity to the next block (e.g., discharge or recovery area)
-            self.env.process(self.send_to_next(entity))
-            yield self.env.timeout(0)
-
-    # ── Instantiate the two gateway blocks ────────────────────────────────────
-    seize_sala_cc = SalaCC_Seize(
-        "Seize_Sala_CC", model.env,
-        container=sala_CC,
-        event_logger=event_logger,
-    )
-
-    release_sala_cc = SalaCC_Release(
-        "Release_Sala_CC", model.env,
-        container=sala_CC,
-        event_logger=event_logger,
-    )
+    # Seize the Sala_CC resource at the start of occupancy (adm_conf_paciente_P12a15).
+    # Release it at the very end (limpeza_organizacao_P39).
+    Sala_CC = model.add_resource("Sala_CC", capacity=5, resource_type="regular")
 
 
     # ---------------------------------------------------------------
@@ -641,29 +503,29 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     adm_conf_paciente_P11b.set_resource_name('Tec_Enfermagem')
 
     # ProcessBlock block: Process with ONE resource    
-    adm_conf_paciente_P12a15 = ProcessBlock(
-        "Adm_Conf_Pac", model.env,
-        resource=Tec_Enfermagem,        
-        delay_time=lambda: distribution('2_adm_e_conf_paciente'),
-        resource_units=1,          
-        event_logger=event_logger
-    )
-    adm_conf_paciente_P12a15.set_resource_name('Tec_Enfermagem')
-
-    # # === REFACTORED: Start of Surgical Center Occupancy ===
-    # adm_conf_paciente_P12a15 = MultiProcessBlock(
-    #     "Adm_Conf_Pac", model.env,        
-    #     resource_requirements={            
-    #         Tec_Enfermagem: 1,
-    #         Sala_CC: 1                     # <--- Enforces room capacity
-    #     },        
-    #     delay_time=lambda: distribution('2_adm_e_conf_paciente'),        
+    # adm_conf_paciente_P12a15 = ProcessBlock(
+    #     "Adm_Conf_Pac", model.env,
+    #     resource=Tec_Enfermagem,        
+    #     delay_time=lambda: distribution('2_adm_e_conf_paciente'),
+    #     resource_units=1,                 
     #     event_logger=event_logger
-    # )    
-    # adm_conf_paciente_P12a15.set_resource_names({        
-    #     Tec_Enfermagem: 'Tec_Enfermagem',
-    #     Sala_CC: 'Sala_CC'
-    # })
+    # )
+    # adm_conf_paciente_P12a15.set_resource_name('Tec_Enfermagem')
+
+    # === REFACTORED: Start of Surgical Center Occupancy ===
+    adm_conf_paciente_P12a15 = MultiProcessBlock(
+        "Adm_Conf_Pac", model.env,        
+        resource_requirements={            
+            Tec_Enfermagem: 1,
+            Sala_CC: 1                     # <--- Enforces room capacity
+        },        
+        delay_time=lambda: distribution('2_adm_e_conf_paciente'),        
+        event_logger=event_logger
+    )    
+    adm_conf_paciente_P12a15.set_resource_names({        
+        Tec_Enfermagem: 'Tec_Enfermagem',
+        Sala_CC: 'Sala_CC'
+    })
 
     # ProcessBlock block: Process with ONE resource
     adm_paciente_P1617 = ProcessBlock(
@@ -952,16 +814,30 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     limpeza_organizacao_P38.set_resource_name('Func_CME')
 
     # ProcessBlock block: Process with ONE resource
-    limpeza_organizacao_P39 = ProcessBlock(
-        "Limpa_Sala_CC", model.env,
-        resource=Eq_Higienizacao,        
-        delay_time=lambda: distribution('5_limpeza_local'),
-        resource_units=1,                 
-        event_logger=event_logger
-    )
-    limpeza_organizacao_P39.set_resource_name('Eq_Higienizacao')
+    # limpeza_organizacao_P39 = ProcessBlock(
+    #     "Limpa_Sala_CC", model.env,
+    #     resource=Eq_Higienizacao,        
+    #     delay_time=lambda: distribution('5_limpeza_local'),
+    #     resource_units=1,                 
+    #     event_logger=event_logger
+    # )
+    # limpeza_organizacao_P39.set_resource_name('Eq_Higienizacao')
    
-    
+    # === REFACTORED: End of Surgical Center Occupancy ===
+    limpeza_organizacao_P39 = MultiProcessBlock(
+        "Limpa_Sala_CC", model.env,        
+        resource_requirements={            
+            Eq_Higienizacao: 1,
+            Sala_CC: 1                     # Will be released after this block
+        },        
+        delay_time=lambda: distribution('5_limpeza_local'),        
+        event_logger=event_logger
+    )    
+    limpeza_organizacao_P39.set_resource_names({        
+        Eq_Higienizacao: 'Eq_Higienizacao',
+        Sala_CC: 'Sala_CC'
+    })
+
     # MultiProcessBlock block: Process with MULTIPLE resources
     #proc_materiais_P40aP44 = MultiProcessBlock(
     #    "Proc_Mat_Sujos", model.env,        
@@ -985,12 +861,18 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # )    
     # ============================================================
     
-    # ============================ DECISIONS ==================== 
-    arriv_CC_busy_decision = DecideBlock(
-        "CC_busy", model.env,
-        decision_type="condition_generic",
-        event_logger=event_logger
-    )
+    # ============================ DECISIONS ====================
+    # admission_decision = DecideBlock(
+    #     "Origem", model.env,
+    #     decision_type="probability",
+    #     event_logger=event_logger
+    # )
+
+    # discharge_decision = DecideBlock(
+    #     "Encaminha", model.env,
+    #     decision_type="probability",
+    #     event_logger=event_logger
+    # )
 
     origem_paciente_decision = DecideBlock(
         "Origem_Paciente", model.env,
@@ -1025,19 +907,15 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     
     # ============================ DISPOSALS ====================            
-    discharge_arrival = DisposeBlock("Saida_CC_Busy", model.env, event_logger=event_logger)     
     discharge_srpa = DisposeBlock("Saida_SRPA", model.env, event_logger=event_logger)     
     # ============================================================
 
 
     # ============================ INCLUDE ALL BLOCKS ====================    
     # Add blocks to model
-    for block in [arrivals_cc, arriv_CC_busy_decision, discharge_arrival, 
-                  seize_sala_cc,
-                  prep_sala_P16, prep_sala_P2, prep_sala_P3a9,
+    for block in [arrivals_cc, prep_sala_P16, prep_sala_P2, prep_sala_P3a9,
                   origem_paciente_decision, 
-                  adm_conf_paciente_P11a,                   
-                  adm_conf_paciente_P11b,                   
+                  adm_conf_paciente_P11a, adm_conf_paciente_P11b, 
                   adm_conf_paciente_P12a15, adm_paciente_P1617, 
                   proc_cirurgico_P18, proc_cirurgico_P19, 
                   porte_cirurgia_decision,
@@ -1047,24 +925,13 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
                   proc_cirurgico_G_P20_025, proc_cirurgico_G_P20aP22_015, proc_cirurgico_G_P20aP22_015_Radio, proc_cirurgico_G_P20_060,
                   proc_cirurgico_pos_P23aP30,
                   limpeza_organizacao_P37, limpeza_organizacao_P38, limpeza_organizacao_P39,
-                  release_sala_cc,
                   discharge_srpa
                   ]:
         model.add_block(block)
     # ====================================================================
     
     # ============================ CONNECT ALL BLOCKS ====================    
-    # arrivals_cc.connect_to(prep_sala_P16)
-    arrivals_cc.connect_to(seize_sala_cc)
-    arrivals_cc.connect_to(arriv_CC_busy_decision)
-
-    arriv_CC_busy_decision.add_route("Pac_Entra_CC", seize_sala_cc, 
-        condition_generic=lambda e, ctx: sala_CC.level > 0)
-    arriv_CC_busy_decision.add_route("Pac_Sai_CC", discharge_arrival, 
-        condition_generic=lambda e, ctx: True) # Catch-all fallback (else)
-    
-    
-    seize_sala_cc.connect_to(prep_sala_P16)
+    arrivals_cc.connect_to(prep_sala_P16)
     prep_sala_P16.connect_to(prep_sala_P2)
     prep_sala_P2.connect_to(prep_sala_P3a9)
     prep_sala_P3a9.connect_to(origem_paciente_decision)
@@ -1072,8 +939,9 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     origem_paciente_decision.add_route("Pac_CTI", adm_conf_paciente_P11a, probability=0.071)
     origem_paciente_decision.add_route("Pac_Outros", adm_conf_paciente_P11b, probability=0.929)
 
-    adm_conf_paciente_P11a.connect_to(adm_conf_paciente_P12a15)    
-    adm_conf_paciente_P11b.connect_to(adm_conf_paciente_P12a15)            
+    adm_conf_paciente_P11a.connect_to(adm_conf_paciente_P12a15)
+    adm_conf_paciente_P11b.connect_to(adm_conf_paciente_P12a15)
+
     adm_conf_paciente_P12a15.connect_to(adm_paciente_P1617)
     adm_paciente_P1617.connect_to(proc_cirurgico_P18)
     proc_cirurgico_P18.connect_to(proc_cirurgico_P19)
@@ -1120,9 +988,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     limpeza_organizacao_P37.connect_to(limpeza_organizacao_P38)
     limpeza_organizacao_P38.connect_to(limpeza_organizacao_P39)
-    limpeza_organizacao_P39.connect_to(release_sala_cc)
-    release_sala_cc.connect_to(discharge_srpa)
-    # limpeza_organizacao_P39.connect_to(discharge_srpa)
+    limpeza_organizacao_P39.connect_to(discharge_srpa)
 
     #proc_materiais_P40aP44.connect_to(discharge_srpa)
     
@@ -1564,7 +1430,7 @@ def main():
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Radiologia', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Func_CME', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Sala_CC', moving_average_window=50)
     plotter.plot_wip_over_time()
     plotter.plot_system_time_distribution()
 
