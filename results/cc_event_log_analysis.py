@@ -1,388 +1,246 @@
 """
-Discrete-Event Simulation Event Log Analysis
-=============================================
-Converts minute-based timestamps to datetime format and produces two
-publication-quality charts:
-  1. Histogram — patient arrival frequency in 2-hour intervals
-  2. Line chart — average number of patients in the system per day
+Discrete-Event Simulation Event Log Analysis (Interactive HTML Version)
+======================================================================
+1. Converte timestamps baseados em minutos da simulação para Datetimes reais.
+2. Identifica e remove pacientes cancelados com tempo de permanência zero (CC_busy_Pac_Sai_CC).
+3. Adiciona métricas diárias acumuladas de Cirurgias Concluídas vs. Canceladas no gráfico do Censo.
+4. CORREÇÃO SOLICITADA: Adiciona subtítulo dinâmico no Gráfico 2 com as médias diárias.
+5. Produz gráficos HTML interativos via Plotly reunidos em um único Dashboard.
 """
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import matplotlib.ticker as ticker
-from matplotlib.gridspec import GridSpec
-from matplotlib.patches import FancyBboxPatch
-import matplotlib.patheffects as pe
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import warnings
 warnings.filterwarnings("ignore")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 0. CONFIGURATION
+# 0. CONFIGURAÇÃO, ESCALA E CONSTANTES
 # ─────────────────────────────────────────────────────────────────────────────
-INPUT_FILE      = "cc_event_log.csv"      # ← change path if needed
-OUTPUT_FILE     = "cc_event_log_dashboard.png"
-SIM_DURATION    = 50_000                  # total simulation minutes
-BASE_DATETIME   = pd.Timestamp("2024-01-01 00:00:00")  # simulation epoch
+INPUT_FILE      = "cc_event_log.csv"      
+OUTPUT_HTML     = "cc_event_log_dashboard.html"
+SIM_DURATION    = 50_000                  
+BASE_DATETIME   = pd.Timestamp("2025-01-01 03:00:00")  
 
-PALETTE = {
+# Capacidades Padrão (Default)
+DEFAULT_CAPACITIES = {
+    "Enfermeiro": 3, "Farmacia": 2, "Tec_Enfermagem": 11, "Eq_Assistencial_CTI": 1,
+    "Eq_Medica": 6, "Anestesista": 6, "Tec_Radiologia": 2, "Eq_Radiologia": 4,
+    "Func_CME": 2, "Eq_Higienizacao": 2
+}
+
+# Escala de dimensionamento dinâmico por hora do dia
+RESOURCE_SCHEDULE = {
+    "Eq_Medica": [
+        (0, 2, 4), (2, 4, 4), (4, 6, 6), (6, 8, 6), (8, 10, 6), (10, 12, 6),
+        (12, 14, 6), (14, 16, 6), (16, 18, 6), (18, 20, 4), (20, 22, 4), (22, 24, 4)
+    ],
+    "Enfermeiro": [(0, 6, 1), (6, 18, 2), (18, 24, 2)],
+    "Tec_Enfermagem": [(0, 6, 10), (6, 18, 11), (18, 24, 11)]
+}
+
+COLORS = {
     "bg":        "#0D1117",
     "panel":     "#161B22",
-    "accent1":   "#00C6FF",   # cyan  – arrivals histogram
-    "accent2":   "#FF6B6B",   # coral – census line
-    "accent2b":  "#FF9999",   # lighter coral for fill
+    "accent1":   "#00C6FF",   # Ciano (Chegadas)
+    "accent2":   "#FF6B6B",   # Coral (Censo)
+    "completed": "#2EA043",   # Verde (Concluídas)
+    "cancelled": "#A371F7",   # Roxo (Canceladas)
     "grid":      "#21262D",
     "text":      "#E6EDF3",
     "subtext":   "#8B949E",
-    "white":     "#FFFFFF",
+    "morning":   "#FFD166",   # Manhã
+    "afternoon": "#F77F00",   # Tarde
+    "night":     "#118AB2",   # Noite
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 1. LOAD RAW DATA
+# 1. CARGA DE DADOS E SEPARAÇÃO DE CIRURGIAS CANCELADAS
 # ─────────────────────────────────────────────────────────────────────────────
-print("Loading event log …")
-df = pd.read_csv(INPUT_FILE)
-print(f"  Rows loaded : {len(df):,}")
-print(f"  Columns     : {df.columns.tolist()}")
+print("Carregando e tratando log de eventos...")
+df_raw = pd.read_csv(INPUT_FILE)
+df_raw["timestamp"] = pd.to_numeric(df_raw["timestamp"], errors="coerce")
+df_raw = df_raw[df_raw["timestamp"] <= SIM_DURATION].copy()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 2. TIMESTAMP CONVERSION  (minutes → datetime)
-# ─────────────────────────────────────────────────────────────────────────────
-print("\nConverting minute-based timestamps to datetime …")
+# Datetime real absoluto baseado nos minutos da simulação
+df_raw["data_formatada"] = BASE_DATETIME + pd.to_timedelta(df_raw["timestamp"], unit="m")
 
-df["datetime"] = BASE_DATETIME + pd.to_timedelta(df["timestamp"], unit="m")
+# Identificação de pacientes cancelados
+cancelled_cases = set(df_raw[df_raw["activity"] == "CC_busy_Pac_Sai_CC"]["case_id"].unique())
 
-# Clip events that exceed the declared simulation horizon
-df = df[df["timestamp"] <= SIM_DURATION].copy()
-print(f"  Events within simulation horizon: {len(df):,}")
-print(f"  Datetime range: {df['datetime'].min()} → {df['datetime'].max()}")
+# Filtra a base principal removendo cancelados
+df = df_raw[~df_raw["case_id"].isin(cancelled_cases)].copy()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 3. EXTRACT PATIENT ARRIVALS
-# ─────────────────────────────────────────────────────────────────────────────
-print("\nExtracting patient arrivals …")
+# Ajuste do Horário e Turno
+df["Hora_Dia"] = df["data_formatada"].dt.hour + (df["data_formatada"].dt.minute / 60.0)
 
-arrivals = (
-    df[(df["activity"] == "Arrival") & (df["lifecycle"] == "complete")]
-    [["case_id", "timestamp", "datetime"]]
-    .rename(columns={"timestamp": "arrival_min", "datetime": "arrival_dt"})
-    .reset_index(drop=True)
-)
-print(f"  Total arrivals : {len(arrivals):,}")
+def assign_shift(dt):
+    hour = dt.hour
+    if 7 <= hour < 13: return "Manhã"
+    elif 13 <= hour < 19: return "Tarde"
+    else: return "Noite"
 
-# 2-hour bins aligned to simulation start
-bin_hours   = 2
-bin_minutes = bin_hours * 60
-bin_edges   = np.arange(0, SIM_DURATION + bin_minutes, bin_minutes)
-bin_labels  = BASE_DATETIME + pd.to_timedelta(bin_edges, unit="m")
-
-arrivals["bin_idx"] = np.digitize(arrivals["arrival_min"], bin_edges) - 1
-arrival_counts = (
-    arrivals
-    .groupby("bin_idx")
-    .size()
-    .reindex(range(len(bin_edges) - 1), fill_value=0)
-    .reset_index()
-    .rename(columns={"index": "bin_idx", 0: "count"})
-)
-arrival_counts["bin_start_dt"] = BASE_DATETIME + pd.to_timedelta(
-    arrival_counts["bin_idx"] * bin_minutes, unit="m"
-)
-print(f"  2-hour bins    : {len(arrival_counts)}")
-print(f"  Max arrivals/2h: {arrival_counts['count'].max()}")
+df["Turno"] = df["data_formatada"].apply(assign_shift)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. COMPUTE DAILY AVERAGE CENSUS
+# 2. MODELAGEM DA CAPACIDADE MINUTO A MINUTO (STAFFING DINÂMICO)
 # ─────────────────────────────────────────────────────────────────────────────
-print("\nBuilding patient census timeline …")
+print("Calculando capacidade dinâmica de cada recurso minuto a minuto...")
+timeline_minutes = BASE_DATETIME + pd.to_timedelta(np.arange(0, int(SIM_DURATION)), unit="m")
+timeline_hours = timeline_minutes.hour
+timeline_shifts = timeline_minutes.map(assign_shift)
 
-# Get each patient's arrival and discharge times
-discharges = (
-    df[(df["activity"] == "Discharge") & (df["lifecycle"] == "complete")]
-    [["case_id", "timestamp"]]
-    .rename(columns={"timestamp": "discharge_min"})
-)
+resource_capacity_totals = {res: {"Manhã": 0.0, "Tarde": 0.0, "Noite": 0.0} for res in DEFAULT_CAPACITIES}
 
-patient_flow = arrivals[["case_id", "arrival_min"]].merge(
-    discharges, on="case_id", how="left"
-)
-# Patients still in system at end of simulation
+for res in DEFAULT_CAPACITIES:
+    default_cap = DEFAULT_CAPACITIES[res]
+    if res in RESOURCE_SCHEDULE:
+        hourly_map = {}
+        for (start_h, end_h, cap) in RESOURCE_SCHEDULE[res]:
+            for h in range(start_h, end_h): hourly_map[h] = cap
+        minute_capacities = np.array([hourly_map.get(h, default_cap) for h in timeline_hours])
+    else:
+        minute_capacities = np.full(int(SIM_DURATION), default_cap)
+    
+    for shift in ["Manhã", "Tarde", "Noite"]:
+        mask = (timeline_shifts == shift)
+        resource_capacity_totals[res][shift] = float(np.sum(minute_capacities[mask]))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. MÉTRICA 1: HISTOGRAMA DE CHEGADAS (INTERVALOS DE 2H)
+# ─────────────────────────────────────────────────────────────────────────────
+arrivals = df[(df["activity"] == "Arrival") & (df["lifecycle"] == "complete")].copy()
+bin_minutes = 120
+bin_edges = np.arange(0, SIM_DURATION + bin_minutes, bin_minutes)
+
+arrivals["bin_idx"] = np.digitize(arrivals["timestamp"], bin_edges) - 1
+arrival_counts = arrivals.groupby("bin_idx").size().reindex(range(len(bin_edges) - 1), fill_value=0).reset_index(name="count")
+arrival_counts["bin_start_dt"] = BASE_DATETIME + pd.to_timedelta(arrival_counts["bin_idx"] * bin_minutes, unit="m")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. MÉTRICA 2: CENSO MÉDIO + CALCULOS DIÁRIOS DE DESEMPENHO CIRÚRGICO
+# ─────────────────────────────────────────────────────────────────────────────
+print("Processando histórico diário do Censo, Conclusões e Cancelamentos...")
+
+# 4.1 Censo de pacientes ativos por hora
+discharges = df[(df["activity"] == "Discharge") & (df["lifecycle"] == "complete")][["case_id", "timestamp"]].rename(columns={"timestamp": "discharge_min"})
+patient_flow = arrivals[["case_id", "timestamp"]].rename(columns={"timestamp": "arrival_min"}).merge(discharges, on="case_id", how="left")
 patient_flow["discharge_min"] = patient_flow["discharge_min"].fillna(SIM_DURATION)
-print(f"  Patients tracked  : {len(patient_flow):,}")
-print(f"  Without discharge : {patient_flow['discharge_min'].isna().sum()}")
 
-# Evaluate census every 60 minutes (hourly snapshot)
 sample_minutes = np.arange(0, SIM_DURATION + 60, 60)
-arr_min = patient_flow["arrival_min"].values
-dis_min = patient_flow["discharge_min"].values
+arr_min, dis_min = patient_flow["arrival_min"].values, patient_flow["discharge_min"].values
+census_per_hour = np.array([int(np.sum((arr_min <= t) & (dis_min > t))) for t in sample_minutes])
 
-census_per_hour = np.array([
-    int(np.sum((arr_min <= t) & (dis_min > t)))
-    for t in sample_minutes
-])
-
-sample_dt = BASE_DATETIME + pd.to_timedelta(sample_minutes, unit="m")
-
-census_df = pd.DataFrame({"datetime": sample_dt, "census": census_per_hour})
+census_df = pd.DataFrame({"datetime": BASE_DATETIME + pd.to_timedelta(sample_minutes, unit="m"), "census": census_per_hour})
 census_df["day"] = census_df["datetime"].dt.floor("D")
+daily_avg = census_df.groupby("day")["census"].mean().reset_index(name="avg_census")
 
-daily_avg = (
-    census_df
-    .groupby("day")["census"]
-    .mean()
-    .reset_index()
-    .rename(columns={"census": "avg_census"})
-)
-print(f"  Simulation days   : {len(daily_avg)}")
-print(f"  Overall avg census: {daily_avg['avg_census'].mean():.2f} patients")
+# 4.2 Total diário de Cirurgias Concluídas
+completed_events = df[(df["activity"] == "Discharge") & (df["lifecycle"] == "complete")].copy()
+completed_events["day"] = completed_events["data_formatada"].dt.floor("D")
+daily_completed = completed_events.groupby("day").size().reindex(daily_avg["day"], fill_value=0).reset_index(name="total_completed")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 5. VISUALISATION
-# ─────────────────────────────────────────────────────────────────────────────
-print("\nRendering dashboard …")
+# 4.3 Total diário de Cirurgias Canceladas
+cancelled_events = df_raw[df_raw["case_id"].isin(cancelled_cases) & (df_raw["activity"] == "Discharge") & (df_raw["lifecycle"] == "complete")].copy()
+cancelled_events["day"] = cancelled_events["data_formatada"].dt.floor("D")
+daily_cancelled = cancelled_events.groupby("day").size().reindex(daily_avg["day"], fill_value=0).reset_index(name="total_cancelled")
 
-plt.rcParams.update({
-    "font.family":      "monospace",
-    "text.color":       PALETTE["text"],
-    "axes.labelcolor":  PALETTE["text"],
-    "xtick.color":      PALETTE["subtext"],
-    "ytick.color":      PALETTE["subtext"],
-    "axes.edgecolor":   PALETTE["grid"],
-    "figure.facecolor": PALETTE["bg"],
-    "axes.facecolor":   PALETTE["panel"],
-    "axes.grid":        True,
-    "grid.color":       PALETTE["grid"],
-    "grid.linewidth":   0.7,
-    "grid.alpha":       1.0,
-})
+# Fusão dos dados do painel 2
+metrics_day = daily_avg.merge(daily_completed, on="day").merge(daily_cancelled, on="day")
 
-fig = plt.figure(figsize=(20, 13), dpi=140)
-fig.patch.set_facecolor(PALETTE["bg"])
-
-gs = GridSpec(
-    2, 1,
-    figure=fig,
-    top=0.88, bottom=0.08,
-    left=0.06, right=0.97,
-    hspace=0.52,
-)
-
-# ── TITLE BLOCK ─────────────────────────────────────────────────────────────
-fig.text(
-    0.5, 0.955,
-    "SURGICAL CENTER  ·  DISCRETE-EVENT SIMULATION ANALYSIS",
-    ha="center", va="center",
-    fontsize=16, fontweight="bold",
-    color=PALETTE["white"], fontfamily="monospace",
-)
-fig.text(
-    0.5, 0.927,
-    f"Simulation horizon: {SIM_DURATION:,} min  ·  "
-    f"Epoch: {BASE_DATETIME.strftime('%Y-%m-%d %H:%M')}  ·  "
-    f"Patients: {len(arrivals):,}  ·  "
-    f"Events: {len(df):,}",
-    ha="center", va="center",
-    fontsize=9, color=PALETTE["subtext"], fontfamily="monospace",
-)
-
-# thin separator line
-fig.add_artist(
-    plt.Line2D([0.06, 0.97], [0.91, 0.91],
-               transform=fig.transFigure,
-               color=PALETTE["accent1"], linewidth=0.8, alpha=0.5)
-)
-
-# ── CHART 1: ARRIVAL HISTOGRAM ───────────────────────────────────────────────
-ax1 = fig.add_subplot(gs[0])
-
-x = arrival_counts["bin_start_dt"]
-y = arrival_counts["count"]
-
-bar_width_days = bin_minutes / (60 * 24) * 0.88   # bar width in date-unit days
-
-bars = ax1.bar(
-    x, y,
-    width=bar_width_days,
-    color=PALETTE["accent1"],
-    alpha=0.85,
-    edgecolor="none",
-    zorder=3,
-    align="edge",
-)
-
-# subtle gradient shimmer: top portion brighter
-for bar in bars:
-    bx, by = bar.get_x(), bar.get_y()
-    bw, bh = bar.get_width(), bar.get_height()
-    if bh > 0:
-        ax1.add_patch(FancyBboxPatch(
-            (bx, by + bh * 0.75), bw, bh * 0.25,
-            boxstyle="square,pad=0",
-            linewidth=0, color="white", alpha=0.12, zorder=4,
-        ))
-
-# rolling 24-hour average overlay
-window = 12  # 12 × 2h bins = 24 h
-rolling_avg = arrival_counts["count"].rolling(window, center=True, min_periods=1).mean()
-ax1.plot(
-    x + pd.Timedelta(minutes=bin_minutes / 2),
-    rolling_avg,
-    color="white", linewidth=1.4, alpha=0.6,
-    linestyle="--", zorder=5, label="24-h rolling avg",
-)
-
-# annotation: peak bin
-peak_idx = arrival_counts["count"].idxmax()
-peak_x   = arrival_counts.loc[peak_idx, "bin_start_dt"]
-peak_y   = arrival_counts.loc[peak_idx, "count"]
-ax1.annotate(
-    f" Peak: {int(peak_y)} arrivals\n {peak_x.strftime('%Y-%m-%d %H:%M')}",
-    xy=(peak_x + pd.Timedelta(minutes=bin_minutes / 2), peak_y),
-    xytext=(peak_x + pd.Timedelta(hours=48), peak_y + 0.5),
-    color=PALETTE["white"],
-    fontsize=8, fontfamily="monospace",
-    arrowprops=dict(arrowstyle="->", color=PALETTE["accent1"], lw=1.2),
-    zorder=6,
-)
-
-# axes formatting
-ax1.set_title(
-    "PATIENT ARRIVALS — FREQUENCY DISTRIBUTION  (2-hour intervals)",
-    loc="left", pad=10, fontsize=10, fontweight="bold",
-    color=PALETTE["text"], fontfamily="monospace",
-)
-ax1.set_ylabel("Arrivals per 2-h interval", fontsize=9, labelpad=8)
-ax1.set_xlabel("Simulation datetime", fontsize=9, labelpad=8)
-ax1.xaxis.set_major_formatter(mdates.DateFormatter("%b %d\n%H:%M"))
-ax1.xaxis.set_major_locator(mdates.DayLocator(interval=3))
-ax1.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
-ax1.set_xlim(bin_labels[0], bin_labels[-1])
-ax1.set_ylim(0, peak_y * 1.25)
-ax1.tick_params(axis="both", labelsize=8)
-
-leg1 = ax1.legend(
-    fontsize=8, loc="upper left",
-    facecolor=PALETTE["bg"], edgecolor=PALETTE["grid"],
-    labelcolor=PALETTE["subtext"],
-)
-
-# stat box top-right
-total_arr = len(arrivals)
-avg_arr_day = total_arr / (SIM_DURATION / (24 * 60))
-stats_text = (
-    f"  Total  : {total_arr:>5,} patients\n"
-    f"  Avg/day: {avg_arr_day:>6.1f}\n"
-    f"  Bin    :  2 h"
-)
-ax1.text(
-    0.995, 0.97, stats_text,
-    transform=ax1.transAxes,
-    ha="right", va="top", fontsize=7.5, fontfamily="monospace",
-    color=PALETTE["subtext"],
-    bbox=dict(boxstyle="round,pad=0.5", facecolor=PALETTE["bg"],
-              edgecolor=PALETTE["grid"], alpha=0.85),
-)
-
-ax1.spines["top"].set_visible(False)
-ax1.spines["right"].set_visible(False)
-
-# ── CHART 2: DAILY AVERAGE CENSUS ───────────────────────────────────────────
-ax2 = fig.add_subplot(gs[1])
-
-x2 = daily_avg["day"]
-y2 = daily_avg["avg_census"]
-
-# shaded area under line
-ax2.fill_between(
-    x2, y2,
-    alpha=0.18, color=PALETTE["accent2"], zorder=2,
-)
-ax2.fill_between(
-    x2, y2,
-    alpha=0.06, color=PALETTE["accent2"], zorder=2,
-)
-
-# main line
-ax2.plot(
-    x2, y2,
-    color=PALETTE["accent2"], linewidth=2.2,
-    zorder=4, solid_capstyle="round",
-)
-
-# dots at each day
-ax2.scatter(
-    x2, y2,
-    s=42, color=PALETTE["accent2"], edgecolors=PALETTE["bg"],
-    linewidths=1.2, zorder=5,
-)
-
-# overall mean reference line
-overall_mean = y2.mean()
-ax2.axhline(
-    overall_mean,
-    color="white", linewidth=1.0, linestyle=":", alpha=0.45,
-    zorder=3, label=f"Overall mean: {overall_mean:.2f} patients",
-)
-
-# annotate max day
-max_day_idx = y2.idxmax()
-max_day_x   = daily_avg.loc[max_day_idx, "day"]
-max_day_y   = daily_avg.loc[max_day_idx, "avg_census"]
-ax2.annotate(
-    f" Day max: {max_day_y:.1f}\n {max_day_x.strftime('%Y-%m-%d')}",
-    xy=(max_day_x, max_day_y),
-    xytext=(max_day_x + pd.Timedelta(days=1.5), max_day_y + 0.4),
-    color=PALETTE["white"],
-    fontsize=8, fontfamily="monospace",
-    arrowprops=dict(arrowstyle="->", color=PALETTE["accent2"], lw=1.2),
-    zorder=6,
-)
-
-# axes formatting
-ax2.set_title(
-    "AVERAGE PATIENTS IN SYSTEM — DAILY PROFILE",
-    loc="left", pad=10, fontsize=10, fontweight="bold",
-    color=PALETTE["text"], fontfamily="monospace",
-)
-ax2.set_ylabel("Avg patients in system", fontsize=9, labelpad=8)
-ax2.set_xlabel("Simulation date", fontsize=9, labelpad=8)
-ax2.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
-ax2.xaxis.set_major_locator(mdates.DayLocator(interval=2))
-ax2.yaxis.set_major_locator(ticker.MaxNLocator(nbins=6, integer=False))
-ax2.set_xlim(x2.min() - pd.Timedelta(hours=12), x2.max() + pd.Timedelta(hours=12))
-ax2.set_ylim(0, max_day_y * 1.25)
-ax2.tick_params(axis="both", labelsize=8)
-
-leg2 = ax2.legend(
-    fontsize=8, loc="upper left",
-    facecolor=PALETTE["bg"], edgecolor=PALETTE["grid"],
-    labelcolor=PALETTE["subtext"],
-)
-
-# stat box
-min_census = y2.min()
-max_census = y2.max()
-stats_text2 = (
-    f"  Min avg : {min_census:>5.2f}\n"
-    f"  Mean avg: {overall_mean:>5.2f}\n"
-    f"  Max avg : {max_census:>5.2f}"
-)
-ax2.text(
-    0.995, 0.97, stats_text2,
-    transform=ax2.transAxes,
-    ha="right", va="top", fontsize=7.5, fontfamily="monospace",
-    color=PALETTE["subtext"],
-    bbox=dict(boxstyle="round,pad=0.5", facecolor=PALETTE["bg"],
-              edgecolor=PALETTE["grid"], alpha=0.85),
-)
-
-ax2.spines["top"].set_visible(False)
-ax2.spines["right"].set_visible(False)
+# CÁLCULO DAS MÉDIAS GERAIS DIÁRIAS PARA O SUBTÍTULO
+mean_completed_day = metrics_day["total_completed"].mean()
+mean_cancelled_day = metrics_day["total_cancelled"].mean()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. EXPORT
+# 5. MÉTRICA 3: TAXA DE OCUPAÇÃO REAL POR RECURSO INDIVIDUAL CONSOLIDADO
 # ─────────────────────────────────────────────────────────────────────────────
-plt.savefig(OUTPUT_FILE, dpi=180, bbox_inches="tight", facecolor=PALETTE["bg"])
-print(f"\n✓ Dashboard saved → {OUTPUT_FILE}")
-plt.show()
+print("Calculando a taxa de ocupação real dos recursos...")
+starts = df[df["lifecycle"] == "start"].copy()
+completes = df[df["lifecycle"] == "complete"].copy()
+
+activity_durations = pd.merge(starts, completes, on=["case_id", "activity", "resource"], suffixes=("_start", "_complete"))
+activity_durations["duration_min"] = activity_durations["timestamp_complete"] - activity_durations["timestamp_start"]
+activity_durations = activity_durations.dropna(subset=["resource"])
+activity_durations = activity_durations[activity_durations["resource"].str.strip() != ""]
+
+# Desmembramento de recursos complexos
+activity_durations["resource_list"] = activity_durations["resource"].str.split(r",\s*")
+exploded_durations = activity_durations.explode("resource_list")
+exploded_durations = exploded_durations.rename(columns={"resource_list": "individual_resource"})
+exploded_durations = exploded_durations[exploded_durations["individual_resource"].isin(DEFAULT_CAPACITIES.keys())]
+
+resource_shift_sums = exploded_durations.groupby(["individual_resource", "Turno_start"])["duration_min"].sum().unstack(fill_value=0.0)
+
+for shift in ["Manhã", "Tarde", "Noite"]:
+    if shift not in resource_shift_sums.columns: resource_shift_sums[shift] = 0.0
+resource_shift_sums = resource_shift_sums[["Manhã", "Tarde", "Noite"]]
+
+resource_utilization_pct = pd.DataFrame(index=resource_shift_sums.index, columns=["Manhã", "Tarde", "Noite"])
+for res in resource_shift_sums.index:
+    for shift in ["Manhã", "Tarde", "Noite"]:
+        total_trabalhado = resource_shift_sums.loc[res, shift]
+        capacidade_turno = resource_capacity_totals[res][shift]
+        resource_utilization_pct.loc[res, shift] = (total_trabalhado / capacidade_turno) * 100 if capacidade_turno > 0 else 0.0
+
+resource_utilization_pct = resource_utilization_pct.fillna(0.0)
+resource_utilization_pct = resource_utilization_pct.loc[resource_utilization_pct.sum(axis=1).sort_values().index]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. CONSTRUÇÃO DO DASHBOARD INTERATIVO
+# ─────────────────────────────────────────────────────────────────────────────
+print("Renderizando dashboard interativo unificado...")
+
+# Montagem das strings de títulos com as quebras de linha e subtextos configurados
+sub_chart_2 = f"<b>PERFIL DIÁRIO: CENSO MÉDIO E DESEMPENHO CIRÚRGICO ACUMULADO</b><br><span style='font-size:12px; color:{COLORS['subtext']}'>Horizonte: {SIM_DURATION:,} min | Média de Cirurgias Concluídas / Dia: {mean_completed_day:.2f} | Média de Cirurgias Canceladas / Dia: {mean_cancelled_day:.2f}</span>"
+
+fig = make_subplots(
+    rows=3, cols=1,
+    subplot_titles=(
+        "<b>DISTRIBUIÇÃO DE CHEGADAS DE PACIENTES REAIS (Intervalos de 2h)</b>",
+        sub_chart_2,  # Subtítulo customizado aplicado exclusivamente aqui
+        "<b>TAXA DE OCUPAÇÃO REAL AJUSTADA POR RECURSO (% da Capacidade do Turno)</b>"
+    ),
+    vertical_spacing=0.08
+)
+
+# Gráfico 1: Chegadas
+fig.add_trace(go.Bar(x=arrival_counts["bin_start_dt"], y=arrival_counts["count"], name="Chegadas (Reais)", marker_color=COLORS["accent1"], opacity=0.85), row=1, col=1)
+
+# Gráfico 2: Linhas Temporais
+fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["avg_census"], mode='lines+markers', name="Censo Médio", line=dict(color=COLORS["accent2"], width=3), marker=dict(size=6)), row=2, col=1)
+fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["total_completed"], mode='lines+markers', name="Cirurgias Concluídas / Dia", line=dict(color=COLORS["completed"], width=2.5, dash="dash"), marker=dict(size=6)), row=2, col=1)
+fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["total_cancelled"], mode='lines+markers', name="Cirurgias Canceladas / Dia", line=dict(color=COLORS["cancelled"], width=2.5, dash="dot"), marker=dict(size=6)), row=2, col=1)
+
+# Gráfico 3: Utilização Agrupada
+for shift, color in zip(["Manhã", "Tarde", "Noite"], [COLORS["morning"], COLORS["afternoon"], COLORS["night"]]):
+    fig.add_trace(
+        go.Bar(
+            y=resource_utilization_pct.index, x=resource_utilization_pct[shift], 
+            name=shift, orientation='h', marker_color=color,
+            hovertemplate=f"Profissional: %{{y}}<br>Turno: {shift}<br>Ocupação Real: %{{x:.1f}}%"
+        ),
+        row=3, col=1
+    )
+
+fig.update_layout(
+    title=dict(
+        text=f"<b>CENTRO CIRÚRGICO · PERFORMANCE E CONSUMO DE CAPACIDADE</b><br><span style='font-size:12px; color:{COLORS['subtext']}'>Análise de logs de simulação em tempo real</span>",
+        font=dict(size=18, color=COLORS["text"], family="monospace")
+    ),
+    paper_bgcolor=COLORS["bg"],
+    plot_bgcolor=COLORS["panel"],
+    font=dict(color=COLORS["text"], family="monospace"),
+    barmode='group',
+    height=1600,
+    showlegend=True
+)
+
+fig.update_xaxes(showgrid=True, gridcolor=COLORS["grid"], zeroline=False)
+fig.update_yaxes(showgrid=True, gridcolor=COLORS["grid"], zeroline=False)
+fig.update_xaxes(title_text="Quantidade Diária / Censo de Pacientes", row=2, col=1)
+fig.update_xaxes(title_text="Taxa de Ocupação Real (%)", row=3, col=1)
+
+fig.write_html(OUTPUT_HTML)
+print(f"✓ Dashboard interativo gerado com subtítulo atualizado no Censo → {OUTPUT_HTML}")
