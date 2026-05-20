@@ -3,7 +3,7 @@ echo =========================================================
 echo EXECUTANDO PIPELINE DE SIMULACAO DO CENTRO CIRURGICO
 echo =========================================================
 
-echo [1/3] Executando o Modelo de Simulacao (cc.py)...
+echo [1] Executando o Modelo de Simulacao (cc.py)...
 desk-sim -m src/cc.py --mode single
 if %errorlevel% neq 0 (
     echo [ERRO] O script de simulacao falhou. Interrompendo pipeline.

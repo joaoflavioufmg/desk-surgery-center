@@ -114,13 +114,6 @@ ARRIVAL_SLOTS = [
 ]
 
 
-
-
-
-
-
-
-
 # ================================================================
 HOURS = 60  # Time conversion factor (base time: Minutos)
 DAYS = 1440
