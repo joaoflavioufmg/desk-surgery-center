@@ -35,7 +35,7 @@ from desk.visualization.interface import run_visualization
 # ================================================================
 # Desk-sim: DIST-FIT Which is the best data distribution?
 # ================================================================
-# desk-distfit -d src/input_data/1_int_cheg.txt
+# desk-distfit -d src/input_data/1_int_cheg.txt --max-sample 500
 # desk-distfit -d src/input_data/2_adm_conf.txt
 # desk-distfit -d src/input_data/3_ato_anestetico.txt
 # desk-distfit -d src/input_data/cir_p.txt
@@ -113,12 +113,49 @@ ARRIVAL_SLOTS = [
     (22, 24, 0.061),   # 22–00h:  6.1%
 ]
 
+# Pesos baseados na média diária real dividida pela média global (13.33)
+WEEKDAY_FACTORS = {
+    0: 14.74 / 13.3328,  # Segunda
+    1: 15.67 / 13.3328,  # Terça
+    2: 14.98 / 13.3328,  # Quarta (Base da simulação: 2025-01-01)
+    3: 15.84 / 13.3328,  # Quinta
+    4: 14.58 / 13.3328,  # Sexta
+    5: 8.88 / 13.3328,   # Sábado (Menor volume no FDS)
+    6: 8.64 / 13.3328,   # Domingo (Menor volume no FDS)
+}
 
 # ================================================================
 HOURS = 60  # Time conversion factor (base time: Minutos)
 DAYS = 1440
 YEARS = 525600
 # ================================================================
+
+
+def make_time_dependent_arrival(base_dist, arrival_slots, env, num_sources=1, start_day_of_week=2):
+        num_slots = len(arrival_slots)
+        
+        def time_dependent_arrival():
+            # 1. Identifica o dia da semana atual na linha do tempo
+            sim_day = int(env.now // 1440)
+            current_day_of_week = (start_day_of_week + sim_day) % 7
+            day_factor = WEEKDAY_FACTORS[current_day_of_week]
+            
+            # 2. Localiza a janela de 2 horas do dia
+            current_hour = (env.now % 1440) / 60.0
+            slot_fraction = arrival_slots[-1][2]
+            for start_h, end_h, fraction in arrival_slots:
+                if start_h <= current_hour < end_h:
+                    slot_fraction = fraction
+                    break
+                    
+            # 3. Combina os coeficientes de ajuste tempo-dependente
+            k_total = (slot_fraction * num_slots) * day_factor
+            
+            base_val = base_dist() if callable(base_dist) else float(base_dist)
+            return (base_val / num_sources) / k_total
+
+        return time_dependent_arrival
+
 
 def build_model(final_simulation_time=None, event_logger=None, verbose=True,
                         entity_filter=None, resource_filter=None,
@@ -149,131 +186,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             if min_los <= x <= max_los:
                 return x
                 
-   
-    # # ---------------------------------------------------------------
-    # # Generic time-dependent arrival
-    # # ---------------------------------------------------------------
-    # ARRIVAL_SLOTS = [
-    #     ( 0,  2, 0.035),   # 00–02h:  3.5%
-    #     ( 2,  4, 0.009),   # 02–04h:  0.9%
-    #     ( 4,  6, 0.010),   # 04–06h:  1.0%
-    #     ( 6,  8, 0.186),   # 06–08h: 18.6%
-    #     ( 8, 10, 0.111),   # 08–10h: 11.1%
-    #     (10, 12, 0.151),   # 10–12h: 15.1%
-    #     (12, 14, 0.108),   # 12–14h: 10.8%
-    #     (14, 16, 0.125),   # 14–16h: 12.5%
-    #     (16, 18, 0.106),   # 16–18h: 10.6%
-    #     (18, 20, 0.035),   # 18–20h:  3.5%
-    #     (20, 22, 0.063),   # 20–22h:  6.3%
-    #     (22, 24, 0.061),   # 22–00h:  6.1%
-    # ]
 
-    def make_time_dependent_arrival(base_dist, arrival_slots, env=model.env, num_sources=1):
-        """
-        Returns a zero-argument callable that yields a time-scaled inter-arrival time.
-
-        Works with ANY base distribution or scalar — no knowledge of the
-        distribution family is required.  The scaling is applied directly in
-        real (time) space:
-
-            inter_arrival = base_sample / k
-
-        where k = slot_fraction * num_slots is the relative intensity of the
-        current 2-hour window vs. a flat (uniform) baseline.
-
-            k > 1  →  busier slot  →  shorter inter-arrivals  (divide shrinks the value)
-            k < 1  →  quieter slot →  longer  inter-arrivals  (divide enlarges the value)
-            k = 1  →  average slot →  base sample unchanged
-
-        This is mathematically equivalent to the distribution-specific tricks:
-        • Exponential:  dividing the sample = multiplying the rate  (1/k·mean → rate·k)
-        • Lognormal:    dividing the sample = shifting mu by −log(k) in log-space
-        • Any other:    scales the mean by 1/k while preserving the CV (shape)
-
-        Parameters
-        ----------
-        base_dist : callable or numeric
-            The base inter-arrival distribution, one of:
-            - Zero-argument callable returning a positive number:
-                lambda: random.expovariate(1/53)
-                lambda: random.lognormvariate(4.0292, 1.2374)
-                lambda: random.triangular(40, 53, 70)
-                lambda: random.gammavariate(2.0, 26.5)
-            - A numeric scalar (constant inter-arrival):
-                53
-        arrival_slots : list of (start_h, end_h, fraction) tuples
-            Empirical 2-hour slot fractions; fractions must sum to 1.0.
-            Each tuple: (hour_start, hour_end, fraction_of_daily_volume)
-        env : simpy.Environment
-            Simulation environment — used to read model.env.now.
-        days : int, optional
-            Minutes per simulated day (default 1440).
-
-        Returns
-        -------
-        callable
-            A zero-argument function compatible with DESK's inter_arrival_time=.
-
-        Examples
-        --------
-        # Lognormal base distribution
-        arrivals_cc = CreateBlock(
-            "Cheg_CC", model.env,
-            inter_arrival_time=make_time_dependent_arrival(
-                base_dist=lambda: random.lognormvariate(4.0292, 1.2374),
-                arrival_slots=ARRIVAL_SLOTS,
-                env=model.env,
-            ), ...
-        )
-
-        # Exponential base distribution
-        arrivals_cc = CreateBlock(
-            "Cheg_CC", model.env,
-            inter_arrival_time=make_time_dependent_arrival(
-                base_dist=lambda: random.expovariate(1/53),
-                arrival_slots=ARRIVAL_SLOTS,
-                env=model.env,
-            ), ...
-        )
-
-        # Constant (scalar) inter-arrival
-        arrivals_cc = CreateBlock(
-            "Cheg_CC", model.env,
-            inter_arrival_time=make_time_dependent_arrival(
-                base_dist=53,
-                arrival_slots=ARRIVAL_SLOTS,
-                env=model.env,
-            ), ...
-        )
-        """
-        DAYS = 1440
-        num_slots = len(arrival_slots)
-
-        def _sample_base():
-            """Draw one sample from the base distribution (or return the scalar)."""
-            return base_dist() if callable(base_dist) else float(base_dist)
-
-        def time_dependent_arrival():
-            # ── 1. Locate the current 2-hour slot ─────────────────────────────
-            current_hour = (env.now % DAYS) / 60.0
-
-            slot_fraction = arrival_slots[-1][2]          # fallback: last slot
-            for start_h, end_h, fraction in arrival_slots:
-                if start_h <= current_hour < end_h:
-                    slot_fraction = fraction
-                    break
-
-            # ── 2. Compute relative intensity vs. flat baseline ────────────────
-            # If all slots were equal each would carry 1/num_slots of daily volume.
-            # k is how many times busier this slot is than that baseline.
-            k = slot_fraction * num_slots                 # k ∈ (0, num_slots]
-
-            # ── 3. Sample and scale ────────────────────────────────────────────
-            # Dividing by k is the only operation needed — no distribution-specific
-            # parameter manipulation required.
-            return (_sample_base()/num_sources) / k
-
-        return time_dependent_arrival
 
 
     # Unidade básica para todos os tempos: minutos
@@ -284,6 +197,9 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
         distributions = {            
             # Arrivals            
             #'arrival_cc': random.expovariate(arrival_rate_cc),
+
+            # 1. Aguarda cirurgia
+            # '1_aguarda_CC': random.triangular(40, 160, 280),
                         
             # 1. Preparação da sala. Aviso cirúrgico (P:1,6)
             '1_aviso_cirurgico': 5,
@@ -368,7 +284,6 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
         return distributions.get(tipo, 0.0)
     
     
-    
 
     Enfermeiro = model.add_resource("Enfermeiro", 3, "regular") 
     Farmacia = model.add_resource("Farmacia", 2, "regular") 
@@ -379,7 +294,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     Tec_Radiologia = model.add_resource("Tec_Radiologia", 2, "regular") 
     Eq_Radiologia = model.add_resource("Eq_Radiologia", 4, "regular") 
     Func_CME = model.add_resource("Func_CME", 2, "regular") 
-    Eq_Higienizacao = model.add_resource("Eq_Higienizacao", 2, "regular") 
+    Eq_Higienizacao = model.add_resource("Eq_Higienizacao", 2, "regular")
+    # Tec_Enfermagem_X = model.add_resource("Tec_Enfermagem_X", 1, "regular")  
     
     # ═══════════════════════════════════════════════════════════════════════════
     # OPERATING ROOM CAPACITY GATE  —  5 concurrent patients maximum
@@ -523,39 +439,6 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     )
 
 
-    # # ---------------------------------------------------------------
-    # # Time-varying resource staffing schedule
-    # # Each resource maps to a list of (start_h, end_h, capacity).
-    # # Resources NOT listed here keep their default capacity unchanged.
-    # # ---------------------------------------------------------------
-    # RESOURCE_SCHEDULE = {
-    #     "Eq_Medica": [
-    #         ( 0,  2, 2),
-    #         ( 2,  4, 2),   # quiet night → reduced staff
-    #         ( 4,  6, 2),
-    #         ( 6,  8, 6),
-    #         ( 8, 10, 6),
-    #         (10, 12, 6),   # peak → full team
-    #         (12, 14, 6),
-    #         (14, 16, 6),
-    #         (16, 18, 4),
-    #         (18, 20, 2),
-    #         (20, 22, 2),
-    #         (22, 24, 2),
-    #     ],
-    #     "Enfermeiro": [
-    #         ( 0,  6, 1),
-    #         ( 6, 18, 2),
-    #         (18, 24, 2),
-    #     ],
-    #     "Tec_Enfermagem": [
-    #         ( 0,  6, 10),
-    #         ( 6, 18, 11),
-    #         (18, 24, 11),
-    #     ],
-    #     # add other resources as needed ...
-    # }
-
 
     def make_resource_scheduler(env, resource_map, schedule):
         """
@@ -643,24 +526,53 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     ))
     
     
+
+
+    # Definindo a função que gera o atributo dinamicamente baseado na hora do relógio da simulação
+    def generate_surgery_complexity():
+        current_hour = (model.env.now % 1440) / 60.0
+        # Turno Principal (Dia: 06h às 18h) -> Alta concentração de cirurgias planejadas (Major)
+        if 6.0 <= current_hour < 18.0:
+            return "Major" if random.random() < 0.85 else "Minor"
+        # Turno da Noite -> Predomínio de procedimentos rápidos ou urgências (Minor)
+        else:
+            return "Minor" if random.random() < 0.90 else "Major"
+
+    # 1. Criação do Bloco usando a função de chegada calibrada por hora/dia
+    # (Substitua 'tempo_base_interchegada' pela sua variável de média original, ex: 45.0)
+    base_dist=lambda: random.weibullvariate(101.8, 0.898199)  # ← time-dependent
+    # base_dist=lambda: max(0,random.gauss(14,2))  # ← time-dependent
+    func_chegada_dinamica = make_time_dependent_arrival(base_dist, ARRIVAL_SLOTS, model.env)
+
     # ============================ ACTIVITIES ====================
     # Create block
     arrivals_cc = CreateBlock(
-        "Cheg_CC", model.env,
-        # inter_arrival_time=lambda: random.expovariate(1/4),
-        # inter_arrival_time=lambda: distribution('arrival_cc'),
-        inter_arrival_time=make_time_dependent_arrival(
-            # base_dist=lambda: 1 + 388.059 * random.betavariate(0.945526, 4.24463),  # ← time-dependent
-            base_dist=lambda: 1926/1292 * (1 + 6292.79 * random.betavariate(0.835686, 49.5466)),  # ← time-dependent
-            arrival_slots=ARRIVAL_SLOTS,
-            num_sources=5),          # ← 5 parallel CreateBlocks),
+        "Cheg_CC", model.env,        
+        # inter_arrival_time=make_time_dependent_arrival(            
+        #     base_dist=lambda: 1926/1292 * (1 + 6292.79 * random.betavariate(0.835686, 49.5466)),  # ← time-dependent
+        #     arrival_slots=ARRIVAL_SLOTS,
+        #     num_sources=5),          # ← 5 parallel CreateBlocks),
+        inter_arrival_time=func_chegada_dinamica,
         entity_prefix="CC_Patient",
         max_arrivals=None, # Infinito
         first_creation=0.0,
         # priority_generator=patient_severity,
         event_logger=event_logger
-    )         
-
+    )
+    # 2. Injeção Automática do Atributo no CreateBlock através do _apply_attributes interno
+    # assigned_attrs
+    # CORRETO:
+    arrivals_cc.assign_attributes(surgery_complexity=generate_surgery_complexity)     
+    
+    # # # ProcessBlock block: Process with NO resource
+    # delay_ag_cc = ProcessBlock(
+    #     "Pac_aguarda_lib_CC", model.env,
+    #     resource=Tec_Enfermagem_X,        
+    #     delay_time=lambda: distribution('1_aguarda_CC'),        
+    #     event_logger=event_logger
+    # )
+    # delay_ag_cc.set_resource_name('Tec_Enfermagem_X') 
+    
     # ProcessBlock block: Process with ONE resource
     prep_sala_P16 = ProcessBlock(
         "Aviso_Cir", model.env,
@@ -721,20 +633,6 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     )
     adm_conf_paciente_P12a15.set_resource_name('Tec_Enfermagem')
 
-    # # === REFACTORED: Start of Surgical Center Occupancy ===
-    # adm_conf_paciente_P12a15 = MultiProcessBlock(
-    #     "Adm_Conf_Pac", model.env,        
-    #     resource_requirements={            
-    #         Tec_Enfermagem: 1,
-    #         Sala_CC: 1                     # <--- Enforces room capacity
-    #     },        
-    #     delay_time=lambda: distribution('2_adm_e_conf_paciente'),        
-    #     event_logger=event_logger
-    # )    
-    # adm_conf_paciente_P12a15.set_resource_names({        
-    #     Tec_Enfermagem: 'Tec_Enfermagem',
-    #     Sala_CC: 'Sala_CC'
-    # })
 
     # ProcessBlock block: Process with ONE resource
     adm_paciente_P1617 = ProcessBlock(
@@ -1071,7 +969,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     porte_cirurgia_decision = DecideBlock(
         "Porte_Cir", model.env,
-        decision_type="probability",
+        decision_type="condition_generic",
         event_logger=event_logger
     )    
 
@@ -1100,10 +998,11 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     discharge_srpa = DisposeBlock("Saida_SRPA", model.env, event_logger=event_logger)     
     # ============================================================
 
-
     # ============================ INCLUDE ALL BLOCKS ====================    
     # Add blocks to model
-    for block in [arrivals_cc, arriv_CC_busy_decision, discharge_arrival, 
+    for block in [arrivals_cc, arriv_CC_busy_decision,
+                #   delay_ag_cc, 
+                  discharge_arrival, 
                   seize_sala_cc,
                   prep_sala_P16, prep_sala_P2, prep_sala_P3a9,
                   origem_paciente_decision, 
@@ -1126,13 +1025,23 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     
     # ============================ CONNECT ALL BLOCKS ====================    
     # arrivals_cc.connect_to(prep_sala_P16)
-    arrivals_cc.connect_to(seize_sala_cc)
+    # arrivals_cc.connect_to(seize_sala_cc)
     arrivals_cc.connect_to(arriv_CC_busy_decision)
 
     arriv_CC_busy_decision.add_route("Pac_Entra_CC", seize_sala_cc, 
         condition_generic=lambda e, ctx: sala_CC.level > 0)
+        
+    # arriv_CC_busy_decision.add_route("Pac_Ag_CC", delay_ag_cc, 
+    #     condition_generic=lambda e, ctx: True) # Catch-all fallback (else)
+
+    # arriv_CC_busy_decision.add_route("Pac_Ag_CC", delay_ag_cc, 
+    #     condition_generic=lambda e, ctx: len(Tec_Enfermagem_X.queue) < 2) # (then)
+    
+    # delay_ag_cc.connect_to(arriv_CC_busy_decision)
+
     arriv_CC_busy_decision.add_route("Pac_Sai_CC", discharge_arrival, 
         condition_generic=lambda e, ctx: True) # Catch-all fallback (else)
+    
     
     
     seize_sala_cc.connect_to(prep_sala_P16)
@@ -1150,9 +1059,24 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     proc_cirurgico_P18.connect_to(proc_cirurgico_P19)
     proc_cirurgico_P19.connect_to(porte_cirurgia_decision)
 
-    porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, probability=0.4)
-    porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, probability=0.4)
-    porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, probability=0.2)
+
+
+    # porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, probability=0.4)
+    # porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, probability=0.4)
+    # porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, probability=0.2)
+
+    porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, 
+        condition_generic=lambda e, ctx: (
+            random.random() < 0.15 if 6.0 <= (ctx['time'] % 1440) / 60.0 < 18.0 
+            else random.random() < 0.80
+        ))
+    porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, 
+        condition_generic=lambda e, ctx: (
+            random.random() < 0.53 if 6.0 <= (ctx['time'] % 1440) / 60.0 < 18.0 
+            else random.random() < 0.75  # Proporção ajustada considerando o resíduo do fluxo anterior
+        ))
+    porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, 
+        condition_generic=lambda e, ctx: True)
 
     # ====================
     proc_cirurgico_P_P20_025.connect_to(faz_ex_radio_cir_p_decision)
@@ -1676,6 +1600,16 @@ def main():
     print(f"Random seed for this run: {config.seed}")
     
     return model, event_logger
+
+
+
+
+
+
+
+
+
+
 
 
 

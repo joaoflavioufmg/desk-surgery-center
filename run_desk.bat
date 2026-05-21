@@ -4,7 +4,10 @@ echo EXECUTANDO PIPELINE DE SIMULACAO DO CENTRO CIRURGICO
 echo =========================================================
 
 echo [1] Executando o Modelo de Simulacao (cc.py)...
+@REM desk-sim -m src/cc.py --mode visualization
 desk-sim -m src/cc.py --mode single
+@REM desk-sim -m src/cc.py --mode replications
+@REM desk-sim -m src/cc.py --mode factorial
 if %errorlevel% neq 0 (
     echo [ERRO] O script de simulacao falhou. Interrompendo pipeline.
     pause
