@@ -1,3 +1,6 @@
+# ========================================================================================
+# CHARTS
+# ========================================================================================
 """
 Discrete-Event Simulation Event Log Analysis (Interactive HTML Version)
 ======================================================================
@@ -20,36 +23,70 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────────────────
 INPUT_FILE      = "cc_event_log.csv"      
 OUTPUT_HTML     = "cc_event_log_dashboard.html"
-SIM_DURATION    = 50_000                  
+SIM_DURATION    = 55_000                  
 BASE_DATETIME   = pd.Timestamp("2025-01-01 03:00:00")  
 
+# ================================================================
+# ESCOPO GLOBAL
+# ================================================================
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
-    "Enfermeiro": 3, "Farmacia": 2, "Tec_Enfermagem": 11, "Eq_Assistencial_CTI": 1,
-    "Eq_Medica": 6, "Anestesista": 6, "Tec_Radiologia": 2, "Eq_Radiologia": 4,
-    "Func_CME": 2, "Eq_Higienizacao": 2
+    "Enfermeiro": 3, 
+    "Farmacia": 2, 
+    "Tec_Enfermagem": 11, 
+    "Eq_Assistencial_CTI": 1,
+    "Eq_Medica": 6, 
+    "Anestesista": 6, 
+    "Tec_Radiologia": 2, 
+    "Eq_Radiologia": 4,
+    "Func_CME": 2, 
+    "Eq_Higienizacao": 2
 }
 
-# Escala de dimensionamento dinâmico por hora do dia
+# ---------------------------------------------------------------
+# Time-varying resource staffing schedule
+# Each resource maps to a list of (start_h, end_h, capacity).
+# Resources NOT listed here keep their default capacity unchanged.
+# ---------------------------------------------------------------
 RESOURCE_SCHEDULE = {
     "Eq_Medica": [
-        (0, 2, 4), (2, 4, 4), (4, 6, 6), (6, 8, 6), (8, 10, 6), (10, 12, 6),
-        (12, 14, 6), (14, 16, 6), (16, 18, 6), (18, 20, 4), (20, 22, 4), (22, 24, 4)
+        ( 0,  2, 6),
+        ( 2,  4, 6),   # quiet night → reduced staff
+        ( 4,  6, 6),
+        ( 6,  8, 6),
+        ( 8, 10, 6),
+        (10, 12, 6),   # peak → full team
+        (12, 14, 6),
+        (14, 16, 6),
+        (16, 18, 6),
+        (18, 20, 6),
+        (20, 22, 6),
+        (22, 24, 6),
     ],
-    "Enfermeiro": [(0, 6, 1), (6, 18, 2), (18, 24, 2)],
-    "Tec_Enfermagem": [(0, 6, 10), (6, 18, 11), (18, 24, 11)]
+    "Enfermeiro": [
+        ( 0,  6, 1),
+        ( 6, 18, 2),
+        (18, 24, 2),
+    ],
+    "Tec_Enfermagem": [
+        ( 0,  6, 10),
+        ( 6, 18, 11),
+        (18, 24, 11),
+    ],
+    # add other resources as needed ...
 }
 
+
 COLORS = {
-    "bg":        "#0D1117",
-    "panel":     "#161B22",
-    "accent1":   "#00C6FF",   # Ciano (Chegadas)
+    "bg":        "#e6e7e7", 
+    "panel":     "#cfcfcf",
+    "accent1":   "#ae0c21",   # Vermelho (Chegadas)
     "accent2":   "#FF6B6B",   # Coral (Censo)
     "completed": "#2EA043",   # Verde (Concluídas)
     "cancelled": "#A371F7",   # Roxo (Canceladas)
-    "grid":      "#21262D",
-    "text":      "#E6EDF3",
-    "subtext":   "#8B949E",
+    "grid":      "#bababa",
+    "text":      "#2e2e2e",
+    "subtext":   "#2e2e2e",
     "morning":   "#FFD166",   # Manhã
     "afternoon": "#F77F00",   # Tarde
     "night":     "#118AB2",   # Noite
@@ -75,11 +112,17 @@ df = df_raw[~df_raw["case_id"].isin(cancelled_cases)].copy()
 # Ajuste do Horário e Turno
 df["Hora_Dia"] = df["data_formatada"].dt.hour + (df["data_formatada"].dt.minute / 60.0)
 
+# Near the top, replace the old assign_shift
 def assign_shift(dt):
+    """Assign shift based on START time of the activity"""
     hour = dt.hour
-    if 7 <= hour < 13: return "Manhã"
-    elif 13 <= hour < 19: return "Tarde"
-    else: return "Noite"
+    if 7 <= hour < 13:
+        return "Manhã"
+    elif 13 <= hour < 19:
+        return "Tarde"
+    else:
+        return "Noite"
+
 
 df["Turno"] = df["data_formatada"].apply(assign_shift)
 
@@ -156,12 +199,14 @@ mean_cancelled_day = metrics_day["total_cancelled"].mean()
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. MÉTRICA 3: TAXA DE OCUPAÇÃO REAL POR RECURSO INDIVIDUAL CONSOLIDADO
 # ─────────────────────────────────────────────────────────────────────────────
-print("Calculando a taxa de ocupação real dos recursos...")
+print("Calculando a taxa de ocupação dos recursos...")
 starts = df[df["lifecycle"] == "start"].copy()
 completes = df[df["lifecycle"] == "complete"].copy()
 
 activity_durations = pd.merge(starts, completes, on=["case_id", "activity", "resource"], suffixes=("_start", "_complete"))
 activity_durations["duration_min"] = activity_durations["timestamp_complete"] - activity_durations["timestamp_start"]
+# CRITICAL FIX: Use START time for shift attribution
+activity_durations["Turno_start"] = activity_durations["data_formatada_start"].apply(assign_shift)
 activity_durations = activity_durations.dropna(subset=["resource"])
 activity_durations = activity_durations[activity_durations["resource"].str.strip() != ""]
 
@@ -198,15 +243,15 @@ sub_chart_2 = f"<b>PERFIL DIÁRIO: CENSO MÉDIO E DESEMPENHO CIRÚRGICO ACUMULAD
 fig = make_subplots(
     rows=3, cols=1,
     subplot_titles=(
-        "<b>DISTRIBUIÇÃO DE CHEGADAS DE PACIENTES REAIS (Intervalos de 2h)</b>",
+        "<b>DISTRIBUIÇÃO DE CHEGADAS DE PACIENTES (Intervalos de 2h)</b>",
         sub_chart_2,  # Subtítulo customizado aplicado exclusivamente aqui
-        "<b>TAXA DE OCUPAÇÃO REAL AJUSTADA POR RECURSO (% da Capacidade do Turno)</b>"
+        "<b>TAXA DE OCUPAÇÃO AJUSTADA POR RECURSO (% da Capacidade do Turno)</b>"
     ),
     vertical_spacing=0.08
 )
 
 # Gráfico 1: Chegadas
-fig.add_trace(go.Bar(x=arrival_counts["bin_start_dt"], y=arrival_counts["count"], name="Chegadas (Reais)", marker_color=COLORS["accent1"], opacity=0.85), row=1, col=1)
+fig.add_trace(go.Bar(x=arrival_counts["bin_start_dt"], y=arrival_counts["count"], name="Chegadas (Pacientes)", marker_color=COLORS["accent1"], opacity=0.85), row=1, col=1)
 
 # Gráfico 2: Linhas Temporais
 fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["avg_census"], mode='lines+markers', name="Censo Médio", line=dict(color=COLORS["accent2"], width=3), marker=dict(size=6)), row=2, col=1)
@@ -219,14 +264,14 @@ for shift, color in zip(["Manhã", "Tarde", "Noite"], [COLORS["morning"], COLORS
         go.Bar(
             y=resource_utilization_pct.index, x=resource_utilization_pct[shift], 
             name=shift, orientation='h', marker_color=color,
-            hovertemplate=f"Profissional: %{{y}}<br>Turno: {shift}<br>Ocupação Real: %{{x:.1f}}%"
+            hovertemplate=f"Profissional: %{{y}}<br>Turno: {shift}<br>Ocupação: %{{x:.1f}}%"
         ),
         row=3, col=1
     )
 
 fig.update_layout(
     title=dict(
-        text=f"<b>CENTRO CIRÚRGICO · PERFORMANCE E CONSUMO DE CAPACIDADE</b><br><span style='font-size:12px; color:{COLORS['subtext']}'>Análise de logs de simulação em tempo real</span>",
+        text=f"<b>CENTRO CIRÚRGICO · PERFORMANCE E CONSUMO DE CAPACIDADE</b><br><span style='font-size:12px; color:{COLORS['subtext']}'>Análise de logs de simulação </span>",
         font=dict(size=18, color=COLORS["text"], family="monospace")
     ),
     paper_bgcolor=COLORS["bg"],
@@ -240,7 +285,8 @@ fig.update_layout(
 fig.update_xaxes(showgrid=True, gridcolor=COLORS["grid"], zeroline=False)
 fig.update_yaxes(showgrid=True, gridcolor=COLORS["grid"], zeroline=False)
 fig.update_xaxes(title_text="Quantidade Diária / Censo de Pacientes", row=2, col=1)
-fig.update_xaxes(title_text="Taxa de Ocupação Real (%)", row=3, col=1)
+fig.update_xaxes(title_text="Taxa de Ocupação (%)", row=3, col=1)
 
 fig.write_html(OUTPUT_HTML)
 print(f"✓ Dashboard interativo gerado com subtítulo atualizado no Censo → {OUTPUT_HTML}")
+

@@ -3,7 +3,7 @@ echo =========================================================
 echo EXECUTANDO PIPELINE DE SIMULACAO DO CENTRO CIRURGICO
 echo =========================================================
 
-echo [1] Executando o Modelo de Simulacao (cc.py)...
+echo [1/3] Executando o Modelo de Simulacao (cc.py)...
 @REM desk-sim -m src/cc.py --mode visualization
 desk-sim -m src/cc.py --mode single
 @REM desk-sim -m src/cc.py --mode replications
@@ -13,26 +13,27 @@ if %errorlevel% neq 0 (
     pause
     exit /b %errorlevel%
 )
-@REM pause
+pause
 
-@REM echo.
-@REM echo [2/3] Executando Analise do Dashboard de Performance (cc_event_log_analysis.py)...
-@REM cd results
-@REM py cc_event_log_analysis.py
-@REM if %errorlevel% neq 0 (
-@REM     echo [ERRO] A analise do dashboard falhou. Interrompendo pipeline.
-@REM     pause
-@REM     exit /b %errorlevel%
-@REM )
+echo.
+echo [2/3] Executando Analise do Dashboard de Performance (cc_event_log_analysis.py)...
+cd results
+py cc_event_log_analysis.py
+if %errorlevel% neq 0 (
+    echo [ERRO] A analise do dashboard falhou. Interrompendo pipeline.
+    pause
+    exit /b %errorlevel%
+)
 
-@REM echo.
-@REM echo [3/3] Executando Ocupacao de Recursos em Slots de 2h (resource_2h_slots.py)...
-@REM py resource_2h_slots.py
-@REM if %errorlevel% neq 0 (
-@REM     echo [ERRO] A analise de slots de 2h falhou. Interrompendo pipeline.
-@REM     pause
-@REM     exit /b %errorlevel%
-@REM )
+echo.
+echo [3/3] Executando Ocupacao de Recursos em Slots de 2h (resource_2h_slots.py)...
+py resource_2h_slots.py
+if %errorlevel% neq 0 (
+    echo [ERRO] A analise de slots de 2h falhou. Interrompendo pipeline.
+    pause
+    exit /b %errorlevel%
+)
+cd ..
 
 echo.
 echo =========================================================

@@ -69,18 +69,18 @@ DEFAULT_CAPACITIES = {
 # ---------------------------------------------------------------
 RESOURCE_SCHEDULE = {
     "Eq_Medica": [
-        ( 0,  2, 6),
-        ( 2,  4, 6),   # quiet night → reduced staff
-        ( 4,  6, 6),
+        ( 0,  2, 4),
+        ( 2,  4, 4),   # quiet night → reduced staff
+        ( 4,  6, 4),
         ( 6,  8, 6),
         ( 8, 10, 6),
         (10, 12, 6),   # peak → full team
         (12, 14, 6),
         (14, 16, 6),
-        (16, 18, 6),
-        (18, 20, 6),
-        (20, 22, 6),
-        (22, 24, 6),
+        (16, 18, 4),
+        (18, 20, 4),
+        (20, 22, 4),
+        (22, 24, 4),
     ],
     "Enfermeiro": [
         ( 0,  6, 1),
@@ -98,60 +98,30 @@ RESOURCE_SCHEDULE = {
 # ---------------------------------------------------------------
 # Generic time-dependent arrival
 # ---------------------------------------------------------------
-# ================================================================
-# VERY STRONG Daytime Arrival Profile (aligned with real data)
-# ================================================================
-# ARRIVAL_SLOTS = [
-#     ( 0,  2, 0.012),   # Night - very low
-#     ( 2,  4, 0.005),
-#     ( 4,  6, 0.010),
-#     ( 6,  8, 0.210),   # ← Big morning ramp-up
-#     ( 8, 10, 0.155),
-#     (10, 12, 0.175),   # Peak
-#     (12, 14, 0.135),
-#     (14, 16, 0.140),
-#     (16, 18, 0.098),
-#     (18, 20, 0.035),   # Sharp drop
-#     (20, 22, 0.015),
-#     (22, 24, 0.010),
-# ]
-
 ARRIVAL_SLOTS = [
-    ( 0,  2, 0.018),   # 00–02h:  1.8%  ← reduced
-    ( 2,  4, 0.006),   # 02–04h:  0.6%
-    ( 4,  6, 0.008),   # 04–06h:  0.8%
-    ( 6,  8, 0.195),   # 06–08h: 19.5%  ← increased
-    ( 8, 10, 0.135),   # 08–10h: 13.5%
-    (10, 12, 0.162),   # 10–12h: 16.2%
-    (12, 14, 0.118),   # 12–14h: 11.8%
-    (14, 16, 0.132),   # 14–16h: 13.2%
-    (16, 18, 0.115),   # 16–18h: 11.5%
-    (18, 20, 0.045),   # 18–20h:  4.5%  ← reduced
-    (20, 22, 0.038),   # 20–22h:  3.8%
-    (22, 24, 0.028),   # 22–00h:  2.8%
+    ( 0,  2, 0.035),   # 00–02h:  3.5%
+    ( 2,  4, 0.009),   # 02–04h:  0.9%
+    ( 4,  6, 0.010),   # 04–06h:  1.0%
+    ( 6,  8, 0.186),   # 06–08h: 18.6%
+    ( 8, 10, 0.111),   # 08–10h: 11.1%
+    (10, 12, 0.151),   # 10–12h: 15.1%
+    (12, 14, 0.108),   # 12–14h: 10.8%
+    (14, 16, 0.125),   # 14–16h: 12.5%
+    (16, 18, 0.106),   # 16–18h: 10.6%
+    (18, 20, 0.035),   # 18–20h:  3.5%
+    (20, 22, 0.063),   # 20–22h:  6.3%
+    (22, 24, 0.061),   # 22–00h:  6.1%
 ]
 
-
-
 # Pesos baseados na média diária real dividida pela média global (13.33)
-# WEEKDAY_FACTORS = {
-#     0: 14.74 / 13.3328,  # Segunda
-#     1: 15.67 / 13.3328,  # Terça
-#     2: 14.98 / 13.3328,  # Quarta (Base da simulação: 2025-01-01)
-#     3: 15.84 / 13.3328,  # Quinta
-#     4: 14.58 / 13.3328,  # Sexta
-#     5: 8.88 / 13.3328,   # Sábado (Menor volume no FDS)
-#     6: 8.64 / 13.3328,   # Domingo (Menor volume no FDS)
-# }
-
 WEEKDAY_FACTORS = {
-    0: 1.25,  # Monday
-    1: 1.30,  # Tuesday
-    2: 1.22,  # Wednesday
-    3: 1.28,  # Thursday
-    4: 1.20,  # Friday
-    5: 0.65,  # Saturday
-    6: 0.60,  # Sunday
+    0: 14.74 / 13.3328,  # Segunda
+    1: 15.67 / 13.3328,  # Terça
+    2: 14.98 / 13.3328,  # Quarta (Base da simulação: 2025-01-01)
+    3: 15.84 / 13.3328,  # Quinta
+    4: 14.58 / 13.3328,  # Sexta
+    5: 8.88 / 13.3328,   # Sábado (Menor volume no FDS)
+    6: 8.64 / 13.3328,   # Domingo (Menor volume no FDS)
 }
 
 # ================================================================
@@ -168,8 +138,7 @@ def make_time_dependent_arrival(base_dist, arrival_slots, env, num_sources=1, st
             # 1. Identifica o dia da semana atual na linha do tempo
             sim_day = int(env.now // 1440)
             current_day_of_week = (start_day_of_week + sim_day) % 7
-            # day_factor = WEEKDAY_FACTORS[current_day_of_week]
-            day_factor = WEEKDAY_FACTORS.get(current_day_of_week, 1.0)
+            day_factor = WEEKDAY_FACTORS[current_day_of_week]
             
             # 2. Localiza a janela de 2 horas do dia
             current_hour = (env.now % 1440) / 60.0
@@ -180,10 +149,10 @@ def make_time_dependent_arrival(base_dist, arrival_slots, env, num_sources=1, st
                     break
                     
             # 3. Combina os coeficientes de ajuste tempo-dependente
-            k_total = (slot_fraction * num_slots) * day_factor * 1.35  # extra boost to day
+            k_total = (slot_fraction * num_slots) * day_factor
             
             base_val = base_dist() if callable(base_dist) else float(base_dist)
-            return (base_val / num_sources) / max(k_total, 0.1)   # avoid division by zero
+            return (base_val / num_sources) / k_total
 
         return time_dependent_arrival
 
@@ -359,44 +328,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     #
     # sala_cc.level (0–5) = available rooms; in_use = 5 − level  (max 5)
     # ═══════════════════════════════════════════════════════════════════════════
-    # sala_CC = simpy.Container(model.env, capacity=5, init=5)
-
-    # TODO: (Não funciona!) Dynamic Operating Room Capacity (5 during day, 3 at night): 
-
     sala_CC = simpy.Container(model.env, capacity=5, init=5)
-    
-    def make_sala_cc_scheduler(env, container):
-        """Dynamically changes the number of available operating rooms by shift"""
-        DAYS = 1440
-        
-        def scheduler():
-            while True:
-                current_hour = (env.now % DAYS) / 60.0
-                
-                # Define capacity by time of day
-                if 19.0 <= current_hour or current_hour < 6.0:   # Night shift
-                    new_capacity = 1
-                else:                                            # Day shift (6h - 19h)
-                    new_capacity = 5
-                
-                # Update container capacity
-                if new_capacity != container.capacity:
-                    # Important: You can only *increase* capacity easily.
-                    # Reducing capacity in SimPy Container is tricky if level > new_capacity
-                    if new_capacity > container.capacity:
-                        container._capacity = new_capacity  # direct access (hack)
-                    else:
-                        # For reduction: we set it, but excess patients stay until they finish
-                        container._capacity = new_capacity
-                    # print(f"[{env.now:.1f}] Sala_CC capacity changed to {new_capacity}")
-                
-                # Check every 60 minutes
-                yield env.timeout(60)
-        
-        return scheduler()
-    
-    # Start dynamic OR capacity scheduler
-    model.env.process(make_sala_cc_scheduler(model.env, sala_CC))
 
     # ── Custom gateway blocks ──────────────────────────────────────────────────
     # These two thin classes are the ONLY place Sala_CC logic lives.
@@ -599,18 +531,18 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # Definindo a função que gera o atributo dinamicamente baseado na hora do relógio da simulação
     def generate_surgery_complexity():
         current_hour = (model.env.now % 1440) / 60.0
-        # Turno Principal (Dia: 07h às 19h) -> Alta concentração de cirurgias planejadas (Major)
-        if 7.0 <= current_hour < 19.0:
+        # Turno Principal (Dia: 06h às 18h) -> Alta concentração de cirurgias planejadas (Major)
+        if 6.0 <= current_hour < 18.0:
             return "Major" if random.random() < 0.85 else "Minor"
         # Turno da Noite -> Predomínio de procedimentos rápidos ou urgências (Minor)
         else:
-            return "Minor" if random.random() < 0.92 else "Major"
+            return "Minor" if random.random() < 0.90 else "Major"
 
     # 1. Criação do Bloco usando a função de chegada calibrada por hora/dia
     # (Substitua 'tempo_base_interchegada' pela sua variável de média original, ex: 45.0)
-    base_dist=lambda: random.weibullvariate(101.8/2, 0.898199)  # ← time-dependent
+    base_dist=lambda: random.weibullvariate(101.8/3, 0.898199)  # ← time-dependent
     # base_dist=lambda: max(0,random.gauss(14,2))  # ← time-dependent
-    func_chegada_dinamica = make_time_dependent_arrival(base_dist, ARRIVAL_SLOTS, model.env, num_sources=1)
+    func_chegada_dinamica = make_time_dependent_arrival(base_dist, ARRIVAL_SLOTS, model.env)
 
     # ============================ ACTIVITIES ====================
     # Create block
@@ -627,17 +559,9 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
         # priority_generator=patient_severity,
         event_logger=event_logger
     )
-    
-    # More reliable attribute injection
-    def inject_surgery_complexity(entity):
-        entity.surgery_complexity = generate_surgery_complexity()
-        # Also store in attributes dict (some frameworks use this)
-        if not hasattr(entity, 'attributes'):
-            entity.attributes = {}
-        entity.attributes['surgery_complexity'] = entity.surgery_complexity
-    
-    arrivals_cc.assign_attributes_callback = inject_surgery_complexity
-    # Keep the original too as backup
+    # 2. Injeção Automática do Atributo no CreateBlock através do _apply_attributes interno
+    # assigned_attrs
+    # CORRETO:
     arrivals_cc.assign_attributes(surgery_complexity=generate_surgery_complexity)     
     
     # # # ProcessBlock block: Process with NO resource
@@ -1157,54 +1081,21 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # Diurno (7h-19h) 15%     50%                 35%     100%
     # Noturno         80%     15%                 5%      100%
 
-
-
-
-    # porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, 
-    # # Cirurgias pequenas ocorrem 15% entre 7h e 19h, e 80% depois de 18h
-    #     condition_generic=lambda e, ctx: (
-    #         random.random() < 0.15 if 7.0 <= (ctx['time'] % 1440) / 60.0 < 19.0 
-    #         else random.random() < 0.80
-    #     ))
-    # porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, 
-    # # Cirurgias médias ocorrem 53% entre 7h e 19h, de 75% depois de 18h
-    #     condition_generic=lambda e, ctx: (
-    #         random.random() < 0.70 if 7.0 <= (ctx['time'] % 1440) / 60.0 < 19.0 
-    #         else random.random() < 0.15  # Proporção ajustada considerando o resíduo do fluxo anterior
-    #     ))
-    # porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, 
-    #     condition_generic=lambda e, ctx: True)
-
-
-    # === ROBUST WAY: Read attribute safely with fallback ===
-    def get_surgery_complexity(e, ctx):
-        """Safely get surgery_complexity with fallback"""
-        if hasattr(e, 'surgery_complexity'):
-            return e.surgery_complexity
-        elif hasattr(e, 'attributes') and isinstance(e.attributes, dict):
-            return e.attributes.get('surgery_complexity', 'Minor')
-        else:
-            return 'Minor'  # safe default
-
-    def is_pequeno(e, ctx):
-        return get_surgery_complexity(e, ctx) == "Minor"
-
-    def is_medio(e, ctx):
-        return get_surgery_complexity(e, ctx) == "Major"
-
-    def is_grande(e, ctx):
-        # Among Major cases, ~30-40% are Grande
-        return (get_surgery_complexity(e, ctx) == "Major" and 
-                random.random() < 0.25)
-
     porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, 
-                                      condition_generic=is_pequeno)
-    
+    # Cirurgias pequenas ocorrem 15% entre 7h e 19h, e 80% depois de 18h
+        condition_generic=lambda e, ctx: (
+            random.random() < 0.15 if 7.0 <= (ctx['time'] % 1440) / 60.0 < 19.0 
+            else random.random() < 0.80
+        ))
     porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, 
-                                      condition_generic=is_medio)
-    
+    # Cirurgias médias ocorrem 53% entre 7h e 19h, de 75% depois de 18h
+        condition_generic=lambda e, ctx: (
+            random.random() < 0.70 if 7.0 <= (ctx['time'] % 1440) / 60.0 < 19.0 
+            else random.random() < 0.15  # Proporção ajustada considerando o resíduo do fluxo anterior
+        ))
     porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, 
-                                      condition_generic=is_grande)
+        condition_generic=lambda e, ctx: True)
+
 
 
 
@@ -1392,8 +1283,8 @@ def simulation_wrapper(seed=None, until=None, warm_up_period=None):
 
     # Create configuration
     config = SimulationConfig(
-        duration=36*DAYS,
-        warm_up_period=3*DAYS,        
+        duration=365*DAYS,
+        warm_up_period=30*DAYS,        
         seed=123,
         check_stability=True
     )
@@ -1675,7 +1566,12 @@ def main():
     print("\nPlotting resourse use over time...")
     plotter = SimulationPlotter(model)
     
-    # # Plot resource utilization over time    
+    # Plot resource utilization over time
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='nursingTech', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='nurses', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='physicians', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='psBeds', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='eMulti', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Enfermeiro', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Farmacia', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Enfermagem', moving_average_window=50)
@@ -1688,7 +1584,7 @@ def main():
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
     plotter.plot_wip_over_time()
     plotter.plot_system_time_distribution()
-    
+    # plotter.plot_system_time_distribution_filtered()
     
 
     # Plot activity metrics
@@ -1722,11 +1618,410 @@ def main():
     entity_metrics = metrics.get_entity_metrics_summary()
     resource_metrics = metrics.get_resource_metrics_summary()
     
-    print(f"\nAverage system time: {entity_metrics['tempo_medio_sistema']:.2f} min")    
-    print(f"Random seed for this run: {config.seed}")    
-
+    print(f"\nAverage system time: {entity_metrics['tempo_medio_sistema']:.2f} min")
+    # print(f"Nurses utilization: "
+    #       f"{resource_metrics['nurses']['taxa_utilizacao']:.1%}")
+    print(f"Random seed for this run: {config.seed}")
     
     return model, event_logger
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ========================================================================================
+# CHARTS
+# ========================================================================================
+"""
+Discrete-Event Simulation Event Log Analysis (Interactive HTML Version)
+======================================================================
+1. Converte timestamps baseados em minutos da simulação para Datetimes reais.
+2. Identifica e remove pacientes cancelados com tempo de permanência zero (CC_busy_Pac_Sai_CC).
+3. Adiciona métricas diárias acumuladas de Cirurgias Concluídas vs. Canceladas no gráfico do Censo.
+4. CORREÇÃO SOLICITADA: Adiciona subtítulo dinâmico no Gráfico 2 com as médias diárias.
+5. Produz gráficos HTML interativos via Plotly reunidos em um único Dashboard.
+"""
+
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import warnings
+warnings.filterwarnings("ignore")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0. CONFIGURAÇÃO, ESCALA E CONSTANTES
+# ─────────────────────────────────────────────────────────────────────────────
+INPUT_FILE      = "results/cc_event_log.csv"      
+OUTPUT_HTML     = "results/cc_event_log_dashboard.html"
+SIM_DURATION    = 50_000                  
+BASE_DATETIME   = pd.Timestamp("2025-01-01 03:00:00")  
+
+# # Capacidades Padrão (Default)
+# DEFAULT_CAPACITIES = {
+#     "Enfermeiro": 3, "Farmacia": 2, "Tec_Enfermagem": 11, "Eq_Assistencial_CTI": 1,
+#     "Eq_Medica": 6, "Anestesista": 6, "Tec_Radiologia": 2, "Eq_Radiologia": 4,
+#     "Func_CME": 2, "Eq_Higienizacao": 2
+# }
+
+# # Escala de dimensionamento dinâmico por hora do dia
+# RESOURCE_SCHEDULE = {
+#     "Eq_Medica": [
+#         (0, 2, 4), (2, 4, 4), (4, 6, 6), (6, 8, 6), (8, 10, 6), (10, 12, 6),
+#         (12, 14, 6), (14, 16, 6), (16, 18, 6), (18, 20, 4), (20, 22, 4), (22, 24, 4)
+#     ],
+#     "Enfermeiro": [(0, 6, 1), (6, 18, 2), (18, 24, 2)],
+#     "Tec_Enfermagem": [(0, 6, 10), (6, 18, 11), (18, 24, 11)]
+# }
+
+COLORS = {
+    "bg":        "#0D1117",
+    "panel":     "#161B22",
+    "accent1":   "#00C6FF",   # Ciano (Chegadas)
+    "accent2":   "#FF6B6B",   # Coral (Censo)
+    "completed": "#2EA043",   # Verde (Concluídas)
+    "cancelled": "#A371F7",   # Roxo (Canceladas)
+    "grid":      "#21262D",
+    "text":      "#E6EDF3",
+    "subtext":   "#8B949E",
+    "morning":   "#FFD166",   # Manhã
+    "afternoon": "#F77F00",   # Tarde
+    "night":     "#118AB2",   # Noite
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. CARGA DE DADOS E SEPARAÇÃO DE CIRURGIAS CANCELADAS
+# ─────────────────────────────────────────────────────────────────────────────
+print("Carregando e tratando log de eventos...")
+df_raw = pd.read_csv(INPUT_FILE)
+df_raw["timestamp"] = pd.to_numeric(df_raw["timestamp"], errors="coerce")
+df_raw = df_raw[df_raw["timestamp"] <= SIM_DURATION].copy()
+
+# Datetime real absoluto baseado nos minutos da simulação
+df_raw["data_formatada"] = BASE_DATETIME + pd.to_timedelta(df_raw["timestamp"], unit="m")
+
+# Identificação de pacientes cancelados
+cancelled_cases = set(df_raw[df_raw["activity"] == "CC_busy_Pac_Sai_CC"]["case_id"].unique())
+
+# Filtra a base principal removendo cancelados
+df = df_raw[~df_raw["case_id"].isin(cancelled_cases)].copy()
+
+# Ajuste do Horário e Turno
+df["Hora_Dia"] = df["data_formatada"].dt.hour + (df["data_formatada"].dt.minute / 60.0)
+
+# Near the top, replace the old assign_shift
+def assign_shift(dt):
+    """Assign shift based on START time of the activity"""
+    hour = dt.hour
+    if 7 <= hour < 13:
+        return "Manhã"
+    elif 13 <= hour < 19:
+        return "Tarde"
+    else:
+        return "Noite"
+
+
+df["Turno"] = df["data_formatada"].apply(assign_shift)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. MODELAGEM DA CAPACIDADE MINUTO A MINUTO (STAFFING DINÂMICO)
+# ─────────────────────────────────────────────────────────────────────────────
+print("Calculando capacidade dinâmica de cada recurso minuto a minuto...")
+timeline_minutes = BASE_DATETIME + pd.to_timedelta(np.arange(0, int(SIM_DURATION)), unit="m")
+timeline_hours = timeline_minutes.hour
+timeline_shifts = timeline_minutes.map(assign_shift)
+
+resource_capacity_totals = {res: {"Manhã": 0.0, "Tarde": 0.0, "Noite": 0.0} for res in DEFAULT_CAPACITIES}
+
+for res in DEFAULT_CAPACITIES:
+    default_cap = DEFAULT_CAPACITIES[res]
+    if res in RESOURCE_SCHEDULE:
+        hourly_map = {}
+        for (start_h, end_h, cap) in RESOURCE_SCHEDULE[res]:
+            for h in range(start_h, end_h): hourly_map[h] = cap
+        minute_capacities = np.array([hourly_map.get(h, default_cap) for h in timeline_hours])
+    else:
+        minute_capacities = np.full(int(SIM_DURATION), default_cap)
+    
+    for shift in ["Manhã", "Tarde", "Noite"]:
+        mask = (timeline_shifts == shift)
+        resource_capacity_totals[res][shift] = float(np.sum(minute_capacities[mask]))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. MÉTRICA 1: HISTOGRAMA DE CHEGADAS (INTERVALOS DE 2H)
+# ─────────────────────────────────────────────────────────────────────────────
+arrivals = df[(df["activity"] == "Arrival") & (df["lifecycle"] == "complete")].copy()
+bin_minutes = 120
+bin_edges = np.arange(0, SIM_DURATION + bin_minutes, bin_minutes)
+
+arrivals["bin_idx"] = np.digitize(arrivals["timestamp"], bin_edges) - 1
+arrival_counts = arrivals.groupby("bin_idx").size().reindex(range(len(bin_edges) - 1), fill_value=0).reset_index(name="count")
+arrival_counts["bin_start_dt"] = BASE_DATETIME + pd.to_timedelta(arrival_counts["bin_idx"] * bin_minutes, unit="m")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. MÉTRICA 2: CENSO MÉDIO + CALCULOS DIÁRIOS DE DESEMPENHO CIRÚRGICO
+# ─────────────────────────────────────────────────────────────────────────────
+print("Processando histórico diário do Censo, Conclusões e Cancelamentos...")
+
+# 4.1 Censo de pacientes ativos por hora
+discharges = df[(df["activity"] == "Discharge") & (df["lifecycle"] == "complete")][["case_id", "timestamp"]].rename(columns={"timestamp": "discharge_min"})
+patient_flow = arrivals[["case_id", "timestamp"]].rename(columns={"timestamp": "arrival_min"}).merge(discharges, on="case_id", how="left")
+patient_flow["discharge_min"] = patient_flow["discharge_min"].fillna(SIM_DURATION)
+
+sample_minutes = np.arange(0, SIM_DURATION + 60, 60)
+arr_min, dis_min = patient_flow["arrival_min"].values, patient_flow["discharge_min"].values
+census_per_hour = np.array([int(np.sum((arr_min <= t) & (dis_min > t))) for t in sample_minutes])
+
+census_df = pd.DataFrame({"datetime": BASE_DATETIME + pd.to_timedelta(sample_minutes, unit="m"), "census": census_per_hour})
+census_df["day"] = census_df["datetime"].dt.floor("D")
+daily_avg = census_df.groupby("day")["census"].mean().reset_index(name="avg_census")
+
+# 4.2 Total diário de Cirurgias Concluídas
+completed_events = df[(df["activity"] == "Discharge") & (df["lifecycle"] == "complete")].copy()
+completed_events["day"] = completed_events["data_formatada"].dt.floor("D")
+daily_completed = completed_events.groupby("day").size().reindex(daily_avg["day"], fill_value=0).reset_index(name="total_completed")
+
+# 4.3 Total diário de Cirurgias Canceladas
+cancelled_events = df_raw[df_raw["case_id"].isin(cancelled_cases) & (df_raw["activity"] == "Discharge") & (df_raw["lifecycle"] == "complete")].copy()
+cancelled_events["day"] = cancelled_events["data_formatada"].dt.floor("D")
+daily_cancelled = cancelled_events.groupby("day").size().reindex(daily_avg["day"], fill_value=0).reset_index(name="total_cancelled")
+
+# Fusão dos dados do painel 2
+metrics_day = daily_avg.merge(daily_completed, on="day").merge(daily_cancelled, on="day")
+
+# CÁLCULO DAS MÉDIAS GERAIS DIÁRIAS PARA O SUBTÍTULO
+mean_completed_day = metrics_day["total_completed"].mean()
+mean_cancelled_day = metrics_day["total_cancelled"].mean()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. MÉTRICA 3: TAXA DE OCUPAÇÃO REAL POR RECURSO INDIVIDUAL CONSOLIDADO
+# ─────────────────────────────────────────────────────────────────────────────
+print("Calculando a taxa de ocupação real dos recursos...")
+starts = df[df["lifecycle"] == "start"].copy()
+completes = df[df["lifecycle"] == "complete"].copy()
+
+activity_durations = pd.merge(starts, completes, on=["case_id", "activity", "resource"], suffixes=("_start", "_complete"))
+activity_durations["duration_min"] = activity_durations["timestamp_complete"] - activity_durations["timestamp_start"]
+# CRITICAL FIX: Use START time for shift attribution
+activity_durations["Turno_start"] = activity_durations["data_formatada_start"].apply(assign_shift)
+activity_durations = activity_durations.dropna(subset=["resource"])
+activity_durations = activity_durations[activity_durations["resource"].str.strip() != ""]
+
+# Desmembramento de recursos complexos
+activity_durations["resource_list"] = activity_durations["resource"].str.split(r",\s*")
+exploded_durations = activity_durations.explode("resource_list")
+exploded_durations = exploded_durations.rename(columns={"resource_list": "individual_resource"})
+exploded_durations = exploded_durations[exploded_durations["individual_resource"].isin(DEFAULT_CAPACITIES.keys())]
+
+resource_shift_sums = exploded_durations.groupby(["individual_resource", "Turno_start"])["duration_min"].sum().unstack(fill_value=0.0)
+
+for shift in ["Manhã", "Tarde", "Noite"]:
+    if shift not in resource_shift_sums.columns: resource_shift_sums[shift] = 0.0
+resource_shift_sums = resource_shift_sums[["Manhã", "Tarde", "Noite"]]
+
+resource_utilization_pct = pd.DataFrame(index=resource_shift_sums.index, columns=["Manhã", "Tarde", "Noite"])
+for res in resource_shift_sums.index:
+    for shift in ["Manhã", "Tarde", "Noite"]:
+        total_trabalhado = resource_shift_sums.loc[res, shift]
+        capacidade_turno = resource_capacity_totals[res][shift]
+        resource_utilization_pct.loc[res, shift] = (total_trabalhado / capacidade_turno) * 100 if capacidade_turno > 0 else 0.0
+
+resource_utilization_pct = resource_utilization_pct.fillna(0.0)
+resource_utilization_pct = resource_utilization_pct.loc[resource_utilization_pct.sum(axis=1).sort_values().index]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. CONSTRUÇÃO DO DASHBOARD INTERATIVO
+# ─────────────────────────────────────────────────────────────────────────────
+print("Renderizando dashboard interativo unificado...")
+
+# Montagem das strings de títulos com as quebras de linha e subtextos configurados
+sub_chart_2 = f"<b>PERFIL DIÁRIO: CENSO MÉDIO E DESEMPENHO CIRÚRGICO ACUMULADO</b><br><span style='font-size:12px; color:{COLORS['subtext']}'>Horizonte: {SIM_DURATION:,} min | Média de Cirurgias Concluídas / Dia: {mean_completed_day:.2f} | Média de Cirurgias Canceladas / Dia: {mean_cancelled_day:.2f}</span>"
+
+fig = make_subplots(
+    rows=3, cols=1,
+    subplot_titles=(
+        "<b>DISTRIBUIÇÃO DE CHEGADAS DE PACIENTES REAIS (Intervalos de 2h)</b>",
+        sub_chart_2,  # Subtítulo customizado aplicado exclusivamente aqui
+        "<b>TAXA DE OCUPAÇÃO REAL AJUSTADA POR RECURSO (% da Capacidade do Turno)</b>"
+    ),
+    vertical_spacing=0.08
+)
+
+# Gráfico 1: Chegadas
+fig.add_trace(go.Bar(x=arrival_counts["bin_start_dt"], y=arrival_counts["count"], name="Chegadas (Reais)", marker_color=COLORS["accent1"], opacity=0.85), row=1, col=1)
+
+# Gráfico 2: Linhas Temporais
+fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["avg_census"], mode='lines+markers', name="Censo Médio", line=dict(color=COLORS["accent2"], width=3), marker=dict(size=6)), row=2, col=1)
+fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["total_completed"], mode='lines+markers', name="Cirurgias Concluídas / Dia", line=dict(color=COLORS["completed"], width=2.5, dash="dash"), marker=dict(size=6)), row=2, col=1)
+fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["total_cancelled"], mode='lines+markers', name="Cirurgias Canceladas / Dia", line=dict(color=COLORS["cancelled"], width=2.5, dash="dot"), marker=dict(size=6)), row=2, col=1)
+
+# Gráfico 3: Utilização Agrupada
+for shift, color in zip(["Manhã", "Tarde", "Noite"], [COLORS["morning"], COLORS["afternoon"], COLORS["night"]]):
+    fig.add_trace(
+        go.Bar(
+            y=resource_utilization_pct.index, x=resource_utilization_pct[shift], 
+            name=shift, orientation='h', marker_color=color,
+            hovertemplate=f"Profissional: %{{y}}<br>Turno: {shift}<br>Ocupação Real: %{{x:.1f}}%"
+        ),
+        row=3, col=1
+    )
+
+fig.update_layout(
+    title=dict(
+        text=f"<b>CENTRO CIRÚRGICO · PERFORMANCE E CONSUMO DE CAPACIDADE</b><br><span style='font-size:12px; color:{COLORS['subtext']}'>Análise de logs de simulação em tempo real</span>",
+        font=dict(size=18, color=COLORS["text"], family="monospace")
+    ),
+    paper_bgcolor=COLORS["bg"],
+    plot_bgcolor=COLORS["panel"],
+    font=dict(color=COLORS["text"], family="monospace"),
+    barmode='group',
+    height=1600,
+    showlegend=True
+)
+
+fig.update_xaxes(showgrid=True, gridcolor=COLORS["grid"], zeroline=False)
+fig.update_yaxes(showgrid=True, gridcolor=COLORS["grid"], zeroline=False)
+fig.update_xaxes(title_text="Quantidade Diária / Censo de Pacientes", row=2, col=1)
+fig.update_xaxes(title_text="Taxa de Ocupação Real (%)", row=3, col=1)
+
+fig.write_html(OUTPUT_HTML)
+print(f"✓ Dashboard interativo gerado com subtítulo atualizado no Censo → {OUTPUT_HTML}")
+
+
+
+
+
+
+
+# ========================================================================================
+# CHARTS
+# ========================================================================================
+"""
+Resource 2-Hour Time Slot Utilization Heatmap (Cleaned Base)
+===========================================================
+Mapeia a ocupação real em janelas de 2h excluindo os dados de pacientes cancelados.
+"""
+
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import warnings
+warnings.filterwarnings("ignore")
+
+INPUT_FILE  = "results/cc_event_log.csv"
+OUTPUT_HTML = "results/resource_2h_utilization.html"
+BASE_DATETIME = pd.Timestamp("2025-01-01 03:00:00")
+SIM_DURATION = 50_000
+
+# DEFAULT_CAPACITIES = {
+#     "Enfermeiro": 3, "Farmacia": 2, "Tec_Enfermagem": 11, "Eq_Assistencial_CTI": 1,
+#     "Eq_Medica": 6, "Anestesista": 6, "Tec_Radiologia": 2, "Eq_Radiologia": 4,
+#     "Func_CME": 2, "Eq_Higienizacao": 2
+# }
+
+# RESOURCE_SCHEDULE = {
+#     "Eq_Medica": [
+#         (0, 2, 4), (2, 4, 4), (4, 6, 6), (6, 8, 6), (8, 10, 6), (10, 12, 6),
+#         (12, 14, 6), (14, 16, 6), (16, 18, 6), (18, 20, 4), (20, 22, 4), (22, 24, 4)
+#     ],
+#     "Enfermeiro": [(0, 6, 1), (6, 18, 2), (18, 24, 2)],
+#     "Tec_Enfermagem": [(0, 6, 10), (6, 18, 11), (18, 24, 11)]
+# }
+
+print("Carregando dados para análise do Heatmap de 2 horas...")
+df_raw = pd.read_csv(INPUT_FILE)
+df_raw["timestamp"] = pd.to_numeric(df_raw["timestamp"], errors="coerce")
+df_raw = df_raw[df_raw["timestamp"] <= SIM_DURATION].copy()
+df_raw["data_formatada"] = BASE_DATETIME + pd.to_timedelta(df_raw["timestamp"], unit="m")
+
+# Identificação e Exclusão de Cancelados
+cancelled_cases = set(df_raw[df_raw["activity"] == "CC_busy_Pac_Sai_CC"]["case_id"].unique())
+df = df_raw[~df_raw["case_id"].isin(cancelled_cases)].copy()
+
+# 1. Mapeamento de tempo de relógio
+timeline_hours = (BASE_DATETIME + pd.to_timedelta(np.arange(0, int(SIM_DURATION)), unit="m")).hour
+hours_distribution = pd.Series(timeline_hours).value_counts().to_dict()
+
+slot_labels = {i: f"{i:02d}:00–{i+2:02d}:00" for i in range(0, 24, 2)}
+ordered_slots = [slot_labels[i] for i in range(0, 24, 2)]
+
+resource_slot_capacities = {}
+for res in DEFAULT_CAPACITIES:
+    resource_slot_capacities[res] = {}
+    default_cap = DEFAULT_CAPACITIES[res]
+    hourly_staff = {h: default_cap for h in range(24)}
+    if res in RESOURCE_SCHEDULE:
+        for (start_h, end_h, cap) in RESOURCE_SCHEDULE[res]:
+            for h in range(start_h, end_h): hourly_staff[h] = cap
+                
+    for slot_start in range(0, 24, 2):
+        lbl = slot_labels[slot_start]
+        minutos_h1 = hours_distribution.get(slot_start, 0) * hourly_staff[slot_start]
+        minutos_h2 = hours_distribution.get(slot_start + 1, 0) * hourly_staff[slot_start + 1]
+        resource_slot_capacities[res][lbl] = float(minutos_h1 + minutos_h2)
+
+# 2. Processamento das Durações Ativas
+starts = df[df["lifecycle"] == "start"].copy()
+completes = df[df["lifecycle"] == "complete"].copy()
+durations = pd.merge(starts, completes, on=["case_id", "activity", "resource"], suffixes=("_start", "_complete"))
+durations["duration_min"] = durations["timestamp_complete"] - durations["timestamp_start"]
+
+# CORREÇÃO AQUI: Remove apenas se a coluna de recurso for nula, preservando dados parciais das decisões
+durations = durations.dropna(subset=["resource"])
+
+durations["resource_list"] = durations["resource"].str.split(r",\s*")
+exploded_durations = durations.explode("resource_list")
+exploded_durations = exploded_durations.rename(columns={"resource_list": "individual_resource"})
+exploded_durations = exploded_durations[exploded_durations["individual_resource"].isin(DEFAULT_CAPACITIES.keys())]
+
+exploded_durations["Turno_start"] = exploded_durations["data_formatada_start"].apply(assign_shift)
+exploded_durations["Start_Hour"] = exploded_durations["data_formatada_start"].dt.hour
+exploded_durations["Time_Slot"] = (exploded_durations["Start_Hour"] // 2) * 2
+exploded_durations["Intervalo Horário"] = exploded_durations["Time_Slot"].map(slot_labels)
+
+matrix_sums = exploded_durations.groupby(["individual_resource", "Intervalo Horário"])["duration_min"].sum().unstack(fill_value=0.0)
+matrix_sums = matrix_sums.reindex(columns=ordered_slots, fill_value=0.0)
+
+matrix_utilization = pd.DataFrame(index=matrix_sums.index, columns=matrix_sums.columns)
+for res in matrix_sums.index:
+    for col in matrix_sums.columns:
+        total_trabalhado = matrix_sums.loc[res, col]
+        max_disponivel = resource_slot_capacities[res][col]
+        matrix_utilization.loc[res, col] = (total_trabalhado / max_disponivel) * 100 if max_disponivel > 0 else 0.0
+
+matrix_utilization = matrix_utilization.fillna(0.0).astype(float)
+matrix_utilization = matrix_utilization.loc[matrix_sums.sum(axis=1).sort_values().index]
+
+print("Gerando mapa de calor...")
+fig = px.imshow(
+    matrix_utilization,
+    labels=dict(x="Intervalo do Dia (Janelas de 2h)", y="Profissional (Individual)", color="Ocupação Ajustada (%)"),
+    x=matrix_utilization.columns, y=matrix_utilization.index,
+    color_continuous_scale="Viridis", zmin=0, zmax=100, aspect="auto"
+)
+fig.update_traces(hovertemplate="Profissional: %{y}<br>Horário: %{x}<br>Ocupação Real: %{z:.1f}%<extra></extra>")
+fig.update_layout(
+    title=dict(
+        text="<b>TAXA DE OCUPAÇÃO REAL (BASE LIMPA DE CANCELAMENTOS)</b><br><span style='font-size:12px; color:#8B949E'>Métrica calibrada apenas para o efetivo cirúrgico executado</span>",
+        font=dict(color="#E6EDF3", family="monospace")
+    ),
+    paper_bgcolor="#0D1117", plot_bgcolor="#161B22", font=dict(color="#E6EDF3", family="monospace"),
+    xaxis_tickangle=-45, height=750, width=1100
+)
+
+fig.write_html(OUTPUT_HTML)
+print(f"✓ Gráfico de slots de 2h salvo com sucesso → {OUTPUT_HTML}")
+
+
+
 
 
 

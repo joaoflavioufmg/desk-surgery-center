@@ -1,7 +1,10 @@
+# ========================================================================================
+# CHARTS 2h
+# ========================================================================================
 """
 Resource 2-Hour Time Slot Utilization Heatmap (Cleaned Base)
 ===========================================================
-Mapeia a ocupação real em janelas de 2h excluindo os dados de pacientes cancelados.
+Mapeia a ocupação em janelas de 2h excluindo os dados de pacientes cancelados.
 """
 
 import pandas as pd
@@ -13,22 +16,61 @@ warnings.filterwarnings("ignore")
 INPUT_FILE  = "cc_event_log.csv"
 OUTPUT_HTML = "resource_2h_utilization.html"
 BASE_DATETIME = pd.Timestamp("2025-01-01 03:00:00")
-SIM_DURATION = 50_000
+SIM_DURATION = 55_000
 
+
+# ================================================================
+# ESCOPO GLOBAL
+# ================================================================
+# Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
-    "Enfermeiro": 3, "Farmacia": 2, "Tec_Enfermagem": 11, "Eq_Assistencial_CTI": 1,
-    "Eq_Medica": 6, "Anestesista": 6, "Tec_Radiologia": 2, "Eq_Radiologia": 4,
-    "Func_CME": 2, "Eq_Higienizacao": 2
+    "Enfermeiro": 3, 
+    "Farmacia": 2, 
+    "Tec_Enfermagem": 11, 
+    "Eq_Assistencial_CTI": 1,
+    "Eq_Medica": 6, 
+    "Anestesista": 6, 
+    "Tec_Radiologia": 2, 
+    "Eq_Radiologia": 4,
+    "Func_CME": 2, 
+    "Eq_Higienizacao": 2
 }
 
+# ---------------------------------------------------------------
+# Time-varying resource staffing schedule
+# Each resource maps to a list of (start_h, end_h, capacity).
+# Resources NOT listed here keep their default capacity unchanged.
+# ---------------------------------------------------------------
 RESOURCE_SCHEDULE = {
     "Eq_Medica": [
-        (0, 2, 4), (2, 4, 4), (4, 6, 6), (6, 8, 6), (8, 10, 6), (10, 12, 6),
-        (12, 14, 6), (14, 16, 6), (16, 18, 6), (18, 20, 4), (20, 22, 4), (22, 24, 4)
+        ( 0,  2, 6),
+        ( 2,  4, 6),   # quiet night → reduced staff
+        ( 4,  6, 6),
+        ( 6,  8, 6),
+        ( 8, 10, 6),
+        (10, 12, 6),   # peak → full team
+        (12, 14, 6),
+        (14, 16, 6),
+        (16, 18, 6),
+        (18, 20, 6),
+        (20, 22, 6),
+        (22, 24, 6),
     ],
-    "Enfermeiro": [(0, 6, 1), (6, 18, 2), (18, 24, 2)],
-    "Tec_Enfermagem": [(0, 6, 10), (6, 18, 11), (18, 24, 11)]
+    "Enfermeiro": [
+        ( 0,  6, 1),
+        ( 6, 18, 2),
+        (18, 24, 2),
+    ],
+    "Tec_Enfermagem": [
+        ( 0,  6, 10),
+        ( 6, 18, 11),
+        (18, 24, 11),
+    ],
+    # add other resources as needed ...
 }
+
+
+
 
 print("Carregando dados para análise do Heatmap de 2 horas...")
 df_raw = pd.read_csv(INPUT_FILE)
@@ -76,6 +118,18 @@ exploded_durations = durations.explode("resource_list")
 exploded_durations = exploded_durations.rename(columns={"resource_list": "individual_resource"})
 exploded_durations = exploded_durations[exploded_durations["individual_resource"].isin(DEFAULT_CAPACITIES.keys())]
 
+
+def assign_shift(dt):
+    """Assign shift based on START time of the activity"""
+    hour = dt.hour
+    if 7 <= hour < 13:
+        return "Manhã"
+    elif 13 <= hour < 19:
+        return "Tarde"
+    else:
+        return "Noite"
+
+exploded_durations["Turno_start"] = exploded_durations["data_formatada_start"].apply(assign_shift)
 exploded_durations["Start_Hour"] = exploded_durations["data_formatada_start"].dt.hour
 exploded_durations["Time_Slot"] = (exploded_durations["Start_Hour"] // 2) * 2
 exploded_durations["Intervalo Horário"] = exploded_durations["Time_Slot"].map(slot_labels)
@@ -96,19 +150,20 @@ matrix_utilization = matrix_utilization.loc[matrix_sums.sum(axis=1).sort_values(
 print("Gerando mapa de calor...")
 fig = px.imshow(
     matrix_utilization,
-    labels=dict(x="Intervalo do Dia (Janelas de 2h)", y="Profissional (Individual)", color="Ocupação Ajustada (%)"),
+    labels=dict(x="Intervalo do Dia (Janelas de 2h)", y="Profissional (Individual)", color="Ocupação (%)"),
     x=matrix_utilization.columns, y=matrix_utilization.index,
     color_continuous_scale="Viridis", zmin=0, zmax=100, aspect="auto"
 )
-fig.update_traces(hovertemplate="Profissional: %{y}<br>Horário: %{x}<br>Ocupação Real: %{z:.1f}%<extra></extra>")
+fig.update_traces(hovertemplate="Profissional: %{y}<br>Horário: %{x}<br>Ocupação: %{z:.1f}%<extra></extra>")
 fig.update_layout(
     title=dict(
-        text="<b>TAXA DE OCUPAÇÃO REAL (BASE LIMPA DE CANCELAMENTOS)</b><br><span style='font-size:12px; color:#8B949E'>Métrica calibrada apenas para o efetivo cirúrgico executado</span>",
-        font=dict(color="#E6EDF3", family="monospace")
+        text="<b>TAXA DE OCUPAÇÃO </b><br><span style='font-size:12px; color:#2e2e2e'>Métrica calibrada apenas para o efetivo cirúrgico executado</span>",
+        font=dict(color="#2e2e2e", family="monospace")
     ),
-    paper_bgcolor="#0D1117", plot_bgcolor="#161B22", font=dict(color="#E6EDF3", family="monospace"),
+    paper_bgcolor="#e6e7e7", plot_bgcolor="#cfcfcf", font=dict(color="#2e2e2e", family="monospace"),
     xaxis_tickangle=-45, height=750, width=1100
 )
 
 fig.write_html(OUTPUT_HTML)
 print(f"✓ Gráfico de slots de 2h salvo com sucesso → {OUTPUT_HTML}")
+
