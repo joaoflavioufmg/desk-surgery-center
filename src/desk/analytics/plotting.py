@@ -442,4 +442,6 @@ class SimulationPlotter:
                 print(f"  ⚪ VERY LOW: Underutilized resource")
             print()
 
+
+
                 

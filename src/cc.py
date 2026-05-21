@@ -272,8 +272,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             '4_encaminha_srpa': random.triangular(10, 20, 30),
 
             # 4. Monit, Med, Permanência e av. Alta SRPA  (P:32,33,34)
-            # '4_monit_permanencia_alta_srpa': random.triangular(480, 1680, 2880),
-            '4_monit_permanencia_alta_srpa': random.triangular(240, 840, 1440),            
+            '4_monit_permanencia_alta_srpa': random.triangular(480, 1680, 2880),
+            # '4_monit_permanencia_alta_srpa': random.triangular(240, 840, 1440),            
 
             # 4. Avaliação para Alta da SRPA (P:35)
             '4_avalia_alta_srpa': random.triangular(5, 8, 10),
@@ -540,7 +540,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     # 1. Criação do Bloco usando a função de chegada calibrada por hora/dia
     # (Substitua 'tempo_base_interchegada' pela sua variável de média original, ex: 45.0)
-    base_dist=lambda: random.weibullvariate(101.8, 0.898199)  # ← time-dependent
+    base_dist=lambda: random.weibullvariate(101.8/3, 0.898199)  # ← time-dependent
     # base_dist=lambda: max(0,random.gauss(14,2))  # ← time-dependent
     func_chegada_dinamica = make_time_dependent_arrival(base_dist, ARRIVAL_SLOTS, model.env)
 
@@ -1065,18 +1065,34 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, probability=0.4)
     # porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, probability=0.2)
 
+    # def assign_shift(dt):
+    #     hour = dt.hour
+    #     if 7 <= hour < 13: return "Manhã"
+    #     elif 13 <= hour < 19: return "Tarde"
+    #     else: return "Noite"
+
+    # Turno           Pequeno Médio (condicional) Grande  Total
+    # Diurno (7h-19h) 15%     50%                 35%     100%
+    # Noturno         80%     15%                 5%      100%
+
     porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, 
+    # Cirurgias pequenas ocorrem 15% entre 7h e 19h, e 80% depois de 18h
         condition_generic=lambda e, ctx: (
-            random.random() < 0.15 if 6.0 <= (ctx['time'] % 1440) / 60.0 < 18.0 
+            random.random() < 0.15 if 7.0 <= (ctx['time'] % 1440) / 60.0 < 19.0 
             else random.random() < 0.80
         ))
     porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, 
+    # Cirurgias médias ocorrem 53% entre 7h e 19h, de 75% depois de 18h
         condition_generic=lambda e, ctx: (
-            random.random() < 0.53 if 6.0 <= (ctx['time'] % 1440) / 60.0 < 18.0 
-            else random.random() < 0.75  # Proporção ajustada considerando o resíduo do fluxo anterior
+            random.random() < 0.70 if 7.0 <= (ctx['time'] % 1440) / 60.0 < 19.0 
+            else random.random() < 0.15  # Proporção ajustada considerando o resíduo do fluxo anterior
         ))
     porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, 
         condition_generic=lambda e, ctx: True)
+
+
+
+
 
     # ====================
     proc_cirurgico_P_P20_025.connect_to(faz_ex_radio_cir_p_decision)
@@ -1562,6 +1578,8 @@ def main():
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
     plotter.plot_wip_over_time()
     plotter.plot_system_time_distribution()
+    # plotter.plot_system_time_distribution_filtered()
+    
 
     # Plot activity metrics
     print("\nPlotting activity metrics...")

@@ -305,7 +305,7 @@ class WIPTracker:
         plt.tight_layout()
         plt.show()
     
-    def plot_system_time_distribution(self):
+    def plot_system_time_distribution(self, min_system_time=0):
         """Plot distribution of total time in system."""
         if not self.model.dispose_blocks:
             print("No system time data available to plot.")
@@ -316,6 +316,7 @@ class WIPTracker:
             e for dispose_block in self.model.dispose_blocks
             for e in dispose_block.disposed_entities
             if e.get_attribute('disposal_time', 0) >= self.model.warm_up_period
+            and e.get_attribute('system_time', 0) > min_system_time   # ← Filtro adicionado
         ]
         
         if not post_warmup_entities:
