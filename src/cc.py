@@ -1143,7 +1143,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     
     # ============================ DISPOSALS ====================            
-    # discharge_arrival = DisposeBlock("Saida_CC_Busy", model.env, event_logger=event_logger)     
+    discharge_arrival = DisposeBlock("Saida_CC_Busy", model.env, event_logger=event_logger)     
     discharge_srpa = DisposeBlock("Saida_SRPA", model.env, event_logger=event_logger)     
     # ============================================================
 
@@ -1151,7 +1151,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # Add blocks to model
     for block in [arrivals_cc, arriv_CC_busy_decision,
                 #   delay_ag_cc, 
-                #   discharge_arrival, 
+                  discharge_arrival, 
                   seize_sala_cc,
                   prep_sala_P16, prep_sala_P2, prep_sala_P3a9,
                   origem_paciente_decision, 
@@ -1188,8 +1188,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     
     # delay_ag_cc.connect_to(arriv_CC_busy_decision)
 
-    # arriv_CC_busy_decision.add_route("Pac_Sai_CC", discharge_arrival, 
-    #     condition_generic=lambda e, ctx: True) # Catch-all fallback (else)
+    arriv_CC_busy_decision.add_route("Pac_Sai_CC", discharge_arrival, 
+        condition_generic=lambda e, ctx: True) # Catch-all fallback (else)
     
     
     

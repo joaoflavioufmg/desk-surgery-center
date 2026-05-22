@@ -1386,6 +1386,8 @@ CC_Patient_128,Limpa_Sala_CC,17978.2503235499,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_128,Release_Sala_CC,17978.2503235499,complete,Sala_CC,,,,,
 CC_Patient_128,Discharge,17978.2503235499,complete,,,,,,137.5736569352739
 CC_Patient_129,Arrival,17874.974844107855,complete,,0.0,,,,
+CC_Patient_129,CC_busy_Pac_Sai_CC,17874.974844107855,complete,,,Pac_Sai_CC,17874.974844107855,,
+CC_Patient_129,Discharge,17874.974844107855,complete,,,,,,0.0
 CC_Patient_13,Arrival,2080.233331088338,complete,,0.0,,,,
 CC_Patient_13,CC_busy_Pac_Entra_CC,2080.233331088338,complete,,,Pac_Entra_CC,2080.233331088338,,
 CC_Patient_13,Seize_Sala_CC,2080.233331088338,complete,Sala_CC,,,,,
@@ -1849,6 +1851,8 @@ CC_Patient_139,Limpa_Sala_CC,20901.816508726464,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_139,Release_Sala_CC,20901.816508726464,complete,Sala_CC,,,,,
 CC_Patient_139,Discharge,20901.816508726464,complete,,,,,,167.85226394693746
 CC_Patient_14,Arrival,2084.47653522491,complete,,0.0,,,,
+CC_Patient_14,CC_busy_Pac_Sai_CC,2084.47653522491,complete,,,Pac_Sai_CC,2084.47653522491,,
+CC_Patient_14,Discharge,2084.47653522491,complete,,,,,,0.0
 CC_Patient_140,Arrival,20740.6361350294,complete,,0.0,,,,
 CC_Patient_140,CC_busy_Pac_Entra_CC,20740.6361350294,complete,,,Pac_Entra_CC,20740.6361350294,,
 CC_Patient_140,Seize_Sala_CC,20740.6361350294,complete,Sala_CC,,,,,
@@ -1976,6 +1980,8 @@ CC_Patient_142,Limpa_Sala_CC,21056.244510560926,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_142,Release_Sala_CC,21056.244510560926,complete,Sala_CC,,,,,
 CC_Patient_142,Discharge,21056.244510560926,complete,,,,,,266.7022208182243
 CC_Patient_143,Arrival,20821.920965611618,complete,,0.0,,,,
+CC_Patient_143,CC_busy_Pac_Sai_CC,20821.920965611618,complete,,,Pac_Sai_CC,20821.920965611618,,
+CC_Patient_143,Discharge,20821.920965611618,complete,,,,,,0.0
 CC_Patient_144,Arrival,20889.081204682057,complete,,0.0,,,,
 CC_Patient_144,CC_busy_Pac_Entra_CC,20889.081204682057,complete,,,Pac_Entra_CC,20889.081204682057,,
 CC_Patient_144,Seize_Sala_CC,20889.081204682057,complete,Sala_CC,,,,,
@@ -2229,6 +2235,8 @@ CC_Patient_149,Limpa_Sala_CC,21445.753877221527,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_149,Release_Sala_CC,21445.753877221527,complete,Sala_CC,,,,,
 CC_Patient_149,Discharge,21445.753877221527,complete,,,,,,161.1017361235863
 CC_Patient_15,Arrival,2157.133200570722,complete,,0.0,,,,
+CC_Patient_15,CC_busy_Pac_Sai_CC,2157.133200570722,complete,,,Pac_Sai_CC,2157.133200570722,,
+CC_Patient_15,Discharge,2157.133200570722,complete,,,,,,0.0
 CC_Patient_150,Arrival,21339.727726400608,complete,,0.0,,,,
 CC_Patient_150,CC_busy_Pac_Entra_CC,21339.727726400608,complete,,,Pac_Entra_CC,21339.727726400608,,
 CC_Patient_150,Seize_Sala_CC,21339.727726400608,complete,Sala_CC,,,,,
@@ -2398,6 +2406,8 @@ CC_Patient_153,Limpa_Sala_CC,21606.46112625868,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_153,Release_Sala_CC,21606.46112625868,complete,Sala_CC,,,,,
 CC_Patient_153,Discharge,21606.46112625868,complete,,,,,,177.7135567676487
 CC_Patient_154,Arrival,21441.472026698735,complete,,0.0,,,,
+CC_Patient_154,CC_busy_Pac_Sai_CC,21441.472026698735,complete,,,Pac_Sai_CC,21441.472026698735,,
+CC_Patient_154,Discharge,21441.472026698735,complete,,,,,,0.0
 CC_Patient_155,Arrival,21574.537646198787,complete,,0.0,,,,
 CC_Patient_155,CC_busy_Pac_Entra_CC,21574.537646198787,complete,,,Pac_Entra_CC,21574.537646198787,,
 CC_Patient_155,Seize_Sala_CC,21574.537646198787,complete,Sala_CC,,,,,
@@ -2609,6 +2619,8 @@ CC_Patient_159,Limpa_Sala_CC,22260.02387046185,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_159,Release_Sala_CC,22260.02387046185,complete,Sala_CC,,,,,
 CC_Patient_159,Discharge,22260.02387046185,complete,,,,,,154.23285841446705
 CC_Patient_16,Arrival,2157.526739649495,complete,,0.0,,,,
+CC_Patient_16,CC_busy_Pac_Sai_CC,2157.526739649495,complete,,,Pac_Sai_CC,2157.526739649495,,
+CC_Patient_16,Discharge,2157.526739649495,complete,,,,,,0.0
 CC_Patient_160,Arrival,22106.674737654077,complete,,0.0,,,,
 CC_Patient_160,CC_busy_Pac_Entra_CC,22106.674737654077,complete,,,Pac_Entra_CC,22106.674737654077,,
 CC_Patient_160,Seize_Sala_CC,22106.674737654077,complete,Sala_CC,,,,,
@@ -2862,6 +2874,8 @@ CC_Patient_165,Limpa_Sala_CC,22558.262518268733,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_165,Release_Sala_CC,22558.262518268733,complete,Sala_CC,,,,,
 CC_Patient_165,Discharge,22558.262518268733,complete,,,,,,231.93242009836104
 CC_Patient_166,Arrival,22331.141120834025,complete,,0.0,,,,
+CC_Patient_166,CC_busy_Pac_Sai_CC,22331.141120834025,complete,,,Pac_Sai_CC,22331.141120834025,,
+CC_Patient_166,Discharge,22331.141120834025,complete,,,,,,0.0
 CC_Patient_167,Arrival,22462.850731341852,complete,,0.0,,,,
 CC_Patient_167,CC_busy_Pac_Entra_CC,22462.850731341852,complete,,,Pac_Entra_CC,22462.850731341852,,
 CC_Patient_167,Seize_Sala_CC,22462.850731341852,complete,Sala_CC,,,,,
@@ -4333,6 +4347,8 @@ CC_Patient_198,Limpa_Sala_CC,26575.523130806938,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_198,Release_Sala_CC,26575.523130806938,complete,Sala_CC,,,,,
 CC_Patient_198,Discharge,26575.523130806938,complete,,,,,,164.40486080661503
 CC_Patient_199,Arrival,26484.97915225744,complete,,0.0,,,,
+CC_Patient_199,CC_busy_Pac_Sai_CC,26484.97915225744,complete,,,Pac_Sai_CC,26484.97915225744,,
+CC_Patient_199,Discharge,26484.97915225744,complete,,,,,,0.0
 CC_Patient_2,Arrival,29.243530896435267,complete,,0.0,,,,
 CC_Patient_2,CC_busy_Pac_Entra_CC,29.243530896435267,complete,,,Pac_Entra_CC,29.243530896435267,,
 CC_Patient_2,Seize_Sala_CC,29.243530896435267,complete,Sala_CC,,,,,
@@ -5300,6 +5316,8 @@ CC_Patient_219,Limpa_Sala_CC,31621.20489469313,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_219,Release_Sala_CC,31621.20489469313,complete,Sala_CC,,,,,
 CC_Patient_219,Discharge,31621.20489469313,complete,,,,,,185.1481741303287
 CC_Patient_22,Arrival,2367.9983670694896,complete,,0.0,,,,
+CC_Patient_22,CC_busy_Pac_Sai_CC,2367.9983670694896,complete,,,Pac_Sai_CC,2367.9983670694896,,
+CC_Patient_22,Discharge,2367.9983670694896,complete,,,,,,0.0
 CC_Patient_220,Arrival,31569.418550857372,complete,,0.0,,,,
 CC_Patient_220,CC_busy_Pac_Entra_CC,31569.418550857372,complete,,,Pac_Entra_CC,31569.418550857372,,
 CC_Patient_220,Seize_Sala_CC,31569.418550857372,complete,Sala_CC,,,,,
@@ -6771,6 +6789,8 @@ CC_Patient_251,Limpa_Sala_CC,38529.48746826521,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_251,Release_Sala_CC,38529.48746826521,complete,Sala_CC,,,,,
 CC_Patient_251,Discharge,38529.48746826521,complete,,,,,,256.27227668761043
 CC_Patient_252,Arrival,38339.16614147647,complete,,0.0,,,,
+CC_Patient_252,CC_busy_Pac_Sai_CC,38339.16614147647,complete,,,Pac_Sai_CC,38339.16614147647,,
+CC_Patient_252,Discharge,38339.16614147647,complete,,,,,,0.0
 CC_Patient_253,Arrival,38515.66132283883,complete,,0.0,,,,
 CC_Patient_253,CC_busy_Pac_Entra_CC,38515.66132283883,complete,,,Pac_Entra_CC,38515.66132283883,,
 CC_Patient_253,Seize_Sala_CC,38515.66132283883,complete,Sala_CC,,,,,
@@ -7066,6 +7086,8 @@ CC_Patient_259,Limpa_Sala_CC,39852.10351322107,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_259,Release_Sala_CC,39852.10351322107,complete,Sala_CC,,,,,
 CC_Patient_259,Discharge,39852.10351322107,complete,,,,,,204.0601281168565
 CC_Patient_26,Arrival,2517.9798109426565,complete,,0.0,,,,
+CC_Patient_26,CC_busy_Pac_Sai_CC,2517.9798109426565,complete,,,Pac_Sai_CC,2517.9798109426565,,
+CC_Patient_26,Discharge,2517.9798109426565,complete,,,,,,0.0
 CC_Patient_260,Arrival,39672.00919811805,complete,,0.0,,,,
 CC_Patient_260,CC_busy_Pac_Entra_CC,39672.00919811805,complete,,,Pac_Entra_CC,39672.00919811805,,
 CC_Patient_260,Seize_Sala_CC,39672.00919811805,complete,Sala_CC,,,,,
@@ -8075,6 +8097,8 @@ CC_Patient_281,Limpa_Sala_CC,43953.366409089846,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_281,Release_Sala_CC,43953.366409089846,complete,Sala_CC,,,,,
 CC_Patient_281,Discharge,43953.366409089846,complete,,,,,,181.27349797480565
 CC_Patient_282,Arrival,43810.20774671272,complete,,0.0,,,,
+CC_Patient_282,CC_busy_Pac_Sai_CC,43810.20774671272,complete,,,Pac_Sai_CC,43810.20774671272,,
+CC_Patient_282,Discharge,43810.20774671272,complete,,,,,,0.0
 CC_Patient_283,Arrival,43836.42028502156,complete,,0.0,,,,
 CC_Patient_283,CC_busy_Pac_Entra_CC,43836.42028502156,complete,,,Pac_Entra_CC,43836.42028502156,,
 CC_Patient_283,Seize_Sala_CC,43836.42028502156,complete,Sala_CC,,,,,
@@ -8160,9 +8184,17 @@ CC_Patient_284,Limpa_Sala_CC,44015.74395128947,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_284,Release_Sala_CC,44015.74395128947,complete,Sala_CC,,,,,
 CC_Patient_284,Discharge,44015.74395128947,complete,,,,,,170.2144803458723
 CC_Patient_285,Arrival,43852.25067726358,complete,,0.0,,,,
+CC_Patient_285,CC_busy_Pac_Sai_CC,43852.25067726358,complete,,,Pac_Sai_CC,43852.25067726358,,
+CC_Patient_285,Discharge,43852.25067726358,complete,,,,,,0.0
 CC_Patient_286,Arrival,43856.902350812416,complete,,0.0,,,,
+CC_Patient_286,CC_busy_Pac_Sai_CC,43856.902350812416,complete,,,Pac_Sai_CC,43856.902350812416,,
+CC_Patient_286,Discharge,43856.902350812416,complete,,,,,,0.0
 CC_Patient_287,Arrival,43877.15298202155,complete,,0.0,,,,
+CC_Patient_287,CC_busy_Pac_Sai_CC,43877.15298202155,complete,,,Pac_Sai_CC,43877.15298202155,,
+CC_Patient_287,Discharge,43877.15298202155,complete,,,,,,0.0
 CC_Patient_288,Arrival,43891.110256660846,complete,,0.0,,,,
+CC_Patient_288,CC_busy_Pac_Sai_CC,43891.110256660846,complete,,,Pac_Sai_CC,43891.110256660846,,
+CC_Patient_288,Discharge,43891.110256660846,complete,,,,,,0.0
 CC_Patient_289,Arrival,43998.49986809659,complete,,0.0,,,,
 CC_Patient_289,CC_busy_Pac_Entra_CC,43998.49986809659,complete,,,Pac_Entra_CC,43998.49986809659,,
 CC_Patient_289,Seize_Sala_CC,43998.49986809659,complete,Sala_CC,,,,,
@@ -8374,6 +8406,8 @@ CC_Patient_292,Limpa_Sala_CC,44183.05689778759,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_292,Release_Sala_CC,44183.05689778759,complete,Sala_CC,,,,,
 CC_Patient_292,Discharge,44183.05689778759,complete,,,,,,142.64521834901097
 CC_Patient_293,Arrival,44080.81753051899,complete,,0.0,,,,
+CC_Patient_293,CC_busy_Pac_Sai_CC,44080.81753051899,complete,,,Pac_Sai_CC,44080.81753051899,,
+CC_Patient_293,Discharge,44080.81753051899,complete,,,,,,0.0
 CC_Patient_294,Arrival,44100.8354844648,complete,,0.0,,,,
 CC_Patient_294,CC_busy_Pac_Entra_CC,44100.8354844648,complete,,,Pac_Entra_CC,44100.8354844648,,
 CC_Patient_294,Seize_Sala_CC,44100.8354844648,complete,Sala_CC,,,,,
@@ -9467,7 +9501,11 @@ CC_Patient_37,Limpa_Sala_CC,3991.8281992770108,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_37,Release_Sala_CC,3991.8281992770108,complete,Sala_CC,,,,,
 CC_Patient_37,Discharge,3991.8281992770108,complete,,,,,,246.09521375676695
 CC_Patient_38,Arrival,3780.40361404827,complete,,0.0,,,,
+CC_Patient_38,CC_busy_Pac_Sai_CC,3780.40361404827,complete,,,Pac_Sai_CC,3780.40361404827,,
+CC_Patient_38,Discharge,3780.40361404827,complete,,,,,,0.0
 CC_Patient_39,Arrival,3812.034868117599,complete,,0.0,,,,
+CC_Patient_39,CC_busy_Pac_Sai_CC,3812.034868117599,complete,,,Pac_Sai_CC,3812.034868117599,,
+CC_Patient_39,Discharge,3812.034868117599,complete,,,,,,0.0
 CC_Patient_4,Arrival,1214.096219081904,complete,,0.0,,,,
 CC_Patient_4,CC_busy_Pac_Entra_CC,1214.096219081904,complete,,,Pac_Entra_CC,1214.096219081904,,
 CC_Patient_4,Seize_Sala_CC,1214.096219081904,complete,Sala_CC,,,,,
@@ -9595,6 +9633,8 @@ CC_Patient_41,Limpa_Sala_CC,4063.1041198594803,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_41,Release_Sala_CC,4063.1041198594803,complete,Sala_CC,,,,,
 CC_Patient_41,Discharge,4063.1041198594803,complete,,,,,,172.00625471601325
 CC_Patient_42,Arrival,3894.007178553928,complete,,0.0,,,,
+CC_Patient_42,CC_busy_Pac_Sai_CC,3894.007178553928,complete,,,Pac_Sai_CC,3894.007178553928,,
+CC_Patient_42,Discharge,3894.007178553928,complete,,,,,,0.0
 CC_Patient_43,Arrival,3953.620794577695,complete,,0.0,,,,
 CC_Patient_43,CC_busy_Pac_Entra_CC,3953.620794577695,complete,,,Pac_Entra_CC,3953.620794577695,,
 CC_Patient_43,Seize_Sala_CC,3953.620794577695,complete,Sala_CC,,,,,
@@ -11150,6 +11190,8 @@ CC_Patient_76,Limpa_Sala_CC,10886.025287819546,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_76,Release_Sala_CC,10886.025287819546,complete,Sala_CC,,,,,
 CC_Patient_76,Discharge,10886.025287819546,complete,,,,,,168.28537494250486
 CC_Patient_77,Arrival,10720.726551708693,complete,,0.0,,,,
+CC_Patient_77,CC_busy_Pac_Sai_CC,10720.726551708693,complete,,,Pac_Sai_CC,10720.726551708693,,
+CC_Patient_77,Discharge,10720.726551708693,complete,,,,,,0.0
 CC_Patient_78,Arrival,10803.148301352927,complete,,0.0,,,,
 CC_Patient_78,CC_busy_Pac_Entra_CC,10803.148301352927,complete,,,Pac_Entra_CC,10803.148301352927,,
 CC_Patient_78,Seize_Sala_CC,10803.148301352927,complete,Sala_CC,,,,,
@@ -11991,6 +12033,8 @@ CC_Patient_95,Limpa_Sala_CC,12606.4607496376,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_95,Release_Sala_CC,12606.4607496376,complete,Sala_CC,,,,,
 CC_Patient_95,Discharge,12606.4607496376,complete,,,,,,162.96299463770447
 CC_Patient_96,Arrival,12480.978943434533,complete,,0.0,,,,
+CC_Patient_96,CC_busy_Pac_Sai_CC,12480.978943434533,complete,,,Pac_Sai_CC,12480.978943434533,,
+CC_Patient_96,Discharge,12480.978943434533,complete,,,,,,0.0
 CC_Patient_97,Arrival,12515.45077281416,complete,,0.0,,,,
 CC_Patient_97,CC_busy_Pac_Entra_CC,12515.45077281416,complete,,,Pac_Entra_CC,12515.45077281416,,
 CC_Patient_97,Seize_Sala_CC,12515.45077281416,complete,Sala_CC,,,,,
@@ -12034,6 +12078,8 @@ CC_Patient_97,Limpa_Sala_CC,12663.892995904167,complete,Eq_Higienizacao,0.0,,,,
 CC_Patient_97,Release_Sala_CC,12663.892995904167,complete,Sala_CC,,,,,
 CC_Patient_97,Discharge,12663.892995904167,complete,,,,,,148.44222309000725
 CC_Patient_98,Arrival,12547.039864904105,complete,,0.0,,,,
+CC_Patient_98,CC_busy_Pac_Sai_CC,12547.039864904105,complete,,,Pac_Sai_CC,12547.039864904105,,
+CC_Patient_98,Discharge,12547.039864904105,complete,,,,,,0.0
 CC_Patient_99,Arrival,12580.627443742513,complete,,0.0,,,,
 CC_Patient_99,CC_busy_Pac_Entra_CC,12580.627443742513,complete,,,Pac_Entra_CC,12580.627443742513,,
 CC_Patient_99,Seize_Sala_CC,12580.627443742513,complete,Sala_CC,,,,,
