@@ -50,7 +50,7 @@ from desk.visualization.interface import run_visualization
 # ESCOPO GLOBAL
 # ================================================================
 # Explicit daily arrival baseline
-BASE_ARRIVALS_PER_DAY = 16
+BASE_ARRIVALS_PER_DAY = 14
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
@@ -73,18 +73,18 @@ DEFAULT_CAPACITIES = {
 # ---------------------------------------------------------------
 RESOURCE_SCHEDULE = {
     "Eq_Medica": [
-        ( 0,  2, 4),
-        ( 2,  4, 4),   # quiet night - reduced staff
-        ( 4,  6, 4),
+        ( 0,  2, 6),
+        ( 2,  4, 6),   # quiet night - reduced staff
+        ( 4,  6, 6),
         ( 6,  8, 6),
         ( 8, 10, 6),
         (10, 12, 6),   # peak - full team
         (12, 14, 6),
         (14, 16, 6),
         (16, 18, 6),
-        (18, 20, 4),
-        (20, 22, 4),
-        (22, 24, 4),
+        (18, 20, 6),
+        (20, 22, 6),
+        (22, 24, 6),
     ],
     "Enfermeiro": [
         ( 0,  6, 1),
@@ -189,91 +189,56 @@ def make_nhpp_interarrival(
     base_arrivals_per_day,
     weekday_factors,
     start_day_of_week=2):
-    """
-    Piecewise-constant Non-Homogeneous Poisson Process — CORRECT implementation.
-
-    WHY THE PREVIOUS VERSION WAS WRONG
-    ────────────────────────────────────
-    The old code called random.expovariate(λ_current_slot) and returned that
-    value directly as the interarrival time.  This is only valid when the next
-    arrival is guaranteed to fall inside the *same* slot.  For low-rate slots
-    (e.g. 02-04h with fraction=0.009) the mean interarrival drawn is ~16 hours,
-    jumping clean over the entire peak daytime window (06-18h = 78% of daily
-    volume).  The simulation produced ~8 arrivals/day instead of 14, with entire
-    days having only 1-2 patients.
-
-    CORRECT ALGORITHM — Piecewise Inversion Method
-    ────────────────────────────────────────────────
-    1. Draw E ~ Exponential(1): one "unit of expected arrivals to consume".
-    2. Starting at the current simulation time t, walk forward slot by slot.
-    3. For each slot, compute the expected arrivals remaining in that slot from
-       position t: Δ = λ_slot × (slot_end − t).
-    4. If E ≤ Δ  →  the next arrival lands inside this slot at t + E / λ_slot.
-       If E > Δ  →  subtract Δ, advance t to the next slot boundary, repeat.
-    5. Correctly inherits the day-of-week factor as t crosses midnight.
-
-    This is mathematically equivalent to the inversion of the integrated rate
-    function Λ(t) = ∫₀ᵗ λ(s)ds, and is the standard approach for
-    piecewise-constant NHPPs (Lewis & Shedler 1979).
-    """
 
     MINUTES_PER_DAY = 1440
 
     # Safety validation
     total_fraction = sum(f for _, _, f in arrival_slots)
+
     if abs(total_fraction - 1.0) > 1e-6:
         raise ValueError(
             f"Arrival slot fractions must sum to 1.0, got {total_fraction}"
         )
 
-    def _lambda_at(absolute_minute):
-        """Return the arrival rate (arrivals/min) at a given absolute minute."""
-        day_index = int(absolute_minute // MINUTES_PER_DAY)
-        weekday   = (start_day_of_week + day_index) % 7
-        wf        = weekday_factors.get(weekday, 1.0)
-        hour      = (absolute_minute % MINUTES_PER_DAY) / 60.0
-        for start_h, end_h, fraction in arrival_slots:
-            if start_h <= hour < end_h:
-                slot_min = (end_h - start_h) * 60
-                return max(base_arrivals_per_day * wf * fraction / slot_min, 1e-9)
-        return 1e-9  # safety fallback
-
-    def _slot_end_absolute(absolute_minute):
-        """Return the absolute minute at which the current slot ends."""
-        day_start = int(absolute_minute // MINUTES_PER_DAY) * MINUTES_PER_DAY
-        hour = (absolute_minute % MINUTES_PER_DAY) / 60.0
-        for start_h, end_h, _ in arrival_slots:
-            if start_h <= hour < end_h:
-                return day_start + end_h * 60
-        # At exact midnight boundary — start of first slot of next day
-        return day_start + MINUTES_PER_DAY
-
     def interarrival():
-        # ── Step 1: draw one Exp(1) variate ───────────────────────────────────
-        # This represents the "amount of expected arrivals" before the next event.
-        e = random.expovariate(1.0)
 
-        # ── Step 2: walk forward through slots consuming 'e' ──────────────────
-        t = env.now
-        for _guard in range(10000):          # guard against infinite loops
-            lam      = _lambda_at(t)
-            slot_end = _slot_end_absolute(t)
-            remaining_in_slot = slot_end - t
+        # ----------------------------------------------------------
+        # Current simulation clock
+        # ----------------------------------------------------------
+        sim_day = int(env.now // MINUTES_PER_DAY)
 
-            # Expected arrivals from t to the end of this slot
-            delta = lam * remaining_in_slot
+        weekday = (start_day_of_week + sim_day) % 7
 
-            if e <= delta:
-                # Next arrival falls inside this slot
-                dt = e / lam
-                return t + dt - env.now      # return the interarrival duration
+        weekday_factor = weekday_factors.get(weekday, 1.0)
 
-            # Arrival is beyond this slot — subtract and move to next slot
-            e -= delta
-            t  = slot_end                    # advance to next slot boundary
+        current_hour = (env.now % MINUTES_PER_DAY) / 60.0
 
-        # Safety fallback (should never be reached with reasonable inputs)
-        return t - env.now
+        # ----------------------------------------------------------
+        # Find active slot
+        # ----------------------------------------------------------
+        for start_h, end_h, fraction in arrival_slots:
+
+            if start_h <= current_hour < end_h:
+
+                slot_duration_min = (end_h - start_h) * 60
+
+                # Expected arrivals in this slot
+                expected_arrivals_slot = (
+                    base_arrivals_per_day
+                    * weekday_factor
+                    * fraction
+                )
+
+                # NHPP rate λ(t)
+                lambda_t = expected_arrivals_slot / slot_duration_min
+
+                # Numerical safety
+                lambda_t = max(lambda_t, 1e-9)
+
+                return random.expovariate(lambda_t)
+
+        # fallback
+        return 99999
 
     return interarrival
 
@@ -516,10 +481,13 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
                     resource="Sala_CC"
                 )
             
-            # 2. Forward entity to the next block (adm_conf_paciente_P12a15)
-            self.env.process(self.send_to_next(entity))            
-            # self.send_to_next(entity)
-            yield self.env.timeout(0)
+            # # 2. Forward entity to the next block (adm_conf_paciente_P12a15)
+            # self.env.process(self.send_to_next(entity))            
+            # # self.send_to_next(entity)
+            # yield self.env.timeout(0)
+
+            # FIX: Directly yield to forward the entity synchronously down the pipeline
+            yield from self.send_to_next(entity)
 
     class SalaCC_Release(ProcessBlock):
         """
@@ -566,11 +534,14 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
                     resource="Sala_CC"
                 )
             
-            # 2. Forward entity to the next block (e.g., discharge or recovery area)
-            self.env.process(self.send_to_next(entity))            
-            # self.send_to_next(entity)
-            yield self.env.timeout(0)
+            # # 2. Forward entity to the next block (e.g., discharge or recovery area)
+            # self.env.process(self.send_to_next(entity))            
+            # # self.send_to_next(entity)
+            # yield self.env.timeout(0)
 
+            # FIX: Directly yield to forward the entity synchronously down the pipeline
+            yield from self.send_to_next(entity)
+            
     # ── Instantiate the two gateway blocks ────────────────────────────────────
     seize_sala_cc = SalaCC_Seize(
         "Seize_Sala_CC", model.env,

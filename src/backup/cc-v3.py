@@ -50,7 +50,7 @@ from desk.visualization.interface import run_visualization
 # ESCOPO GLOBAL
 # ================================================================
 # Explicit daily arrival baseline
-BASE_ARRIVALS_PER_DAY = 16
+BASE_ARRIVALS_PER_DAY = 14
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
@@ -73,18 +73,18 @@ DEFAULT_CAPACITIES = {
 # ---------------------------------------------------------------
 RESOURCE_SCHEDULE = {
     "Eq_Medica": [
-        ( 0,  2, 4),
-        ( 2,  4, 4),   # quiet night - reduced staff
-        ( 4,  6, 4),
+        ( 0,  2, 6),
+        ( 2,  4, 6),   # quiet night - reduced staff
+        ( 4,  6, 6),
         ( 6,  8, 6),
         ( 8, 10, 6),
         (10, 12, 6),   # peak - full team
         (12, 14, 6),
         (14, 16, 6),
         (16, 18, 6),
-        (18, 20, 4),
-        (20, 22, 4),
-        (22, 24, 4),
+        (18, 20, 6),
+        (20, 22, 6),
+        (22, 24, 6),
     ],
     "Enfermeiro": [
         ( 0,  6, 1),
@@ -189,91 +189,56 @@ def make_nhpp_interarrival(
     base_arrivals_per_day,
     weekday_factors,
     start_day_of_week=2):
-    """
-    Piecewise-constant Non-Homogeneous Poisson Process — CORRECT implementation.
-
-    WHY THE PREVIOUS VERSION WAS WRONG
-    ────────────────────────────────────
-    The old code called random.expovariate(λ_current_slot) and returned that
-    value directly as the interarrival time.  This is only valid when the next
-    arrival is guaranteed to fall inside the *same* slot.  For low-rate slots
-    (e.g. 02-04h with fraction=0.009) the mean interarrival drawn is ~16 hours,
-    jumping clean over the entire peak daytime window (06-18h = 78% of daily
-    volume).  The simulation produced ~8 arrivals/day instead of 14, with entire
-    days having only 1-2 patients.
-
-    CORRECT ALGORITHM — Piecewise Inversion Method
-    ────────────────────────────────────────────────
-    1. Draw E ~ Exponential(1): one "unit of expected arrivals to consume".
-    2. Starting at the current simulation time t, walk forward slot by slot.
-    3. For each slot, compute the expected arrivals remaining in that slot from
-       position t: Δ = λ_slot × (slot_end − t).
-    4. If E ≤ Δ  →  the next arrival lands inside this slot at t + E / λ_slot.
-       If E > Δ  →  subtract Δ, advance t to the next slot boundary, repeat.
-    5. Correctly inherits the day-of-week factor as t crosses midnight.
-
-    This is mathematically equivalent to the inversion of the integrated rate
-    function Λ(t) = ∫₀ᵗ λ(s)ds, and is the standard approach for
-    piecewise-constant NHPPs (Lewis & Shedler 1979).
-    """
 
     MINUTES_PER_DAY = 1440
 
     # Safety validation
     total_fraction = sum(f for _, _, f in arrival_slots)
+
     if abs(total_fraction - 1.0) > 1e-6:
         raise ValueError(
             f"Arrival slot fractions must sum to 1.0, got {total_fraction}"
         )
 
-    def _lambda_at(absolute_minute):
-        """Return the arrival rate (arrivals/min) at a given absolute minute."""
-        day_index = int(absolute_minute // MINUTES_PER_DAY)
-        weekday   = (start_day_of_week + day_index) % 7
-        wf        = weekday_factors.get(weekday, 1.0)
-        hour      = (absolute_minute % MINUTES_PER_DAY) / 60.0
-        for start_h, end_h, fraction in arrival_slots:
-            if start_h <= hour < end_h:
-                slot_min = (end_h - start_h) * 60
-                return max(base_arrivals_per_day * wf * fraction / slot_min, 1e-9)
-        return 1e-9  # safety fallback
-
-    def _slot_end_absolute(absolute_minute):
-        """Return the absolute minute at which the current slot ends."""
-        day_start = int(absolute_minute // MINUTES_PER_DAY) * MINUTES_PER_DAY
-        hour = (absolute_minute % MINUTES_PER_DAY) / 60.0
-        for start_h, end_h, _ in arrival_slots:
-            if start_h <= hour < end_h:
-                return day_start + end_h * 60
-        # At exact midnight boundary — start of first slot of next day
-        return day_start + MINUTES_PER_DAY
-
     def interarrival():
-        # ── Step 1: draw one Exp(1) variate ───────────────────────────────────
-        # This represents the "amount of expected arrivals" before the next event.
-        e = random.expovariate(1.0)
 
-        # ── Step 2: walk forward through slots consuming 'e' ──────────────────
-        t = env.now
-        for _guard in range(10000):          # guard against infinite loops
-            lam      = _lambda_at(t)
-            slot_end = _slot_end_absolute(t)
-            remaining_in_slot = slot_end - t
+        # ----------------------------------------------------------
+        # Current simulation clock
+        # ----------------------------------------------------------
+        sim_day = int(env.now // MINUTES_PER_DAY)
 
-            # Expected arrivals from t to the end of this slot
-            delta = lam * remaining_in_slot
+        weekday = (start_day_of_week + sim_day) % 7
 
-            if e <= delta:
-                # Next arrival falls inside this slot
-                dt = e / lam
-                return t + dt - env.now      # return the interarrival duration
+        weekday_factor = weekday_factors.get(weekday, 1.0)
 
-            # Arrival is beyond this slot — subtract and move to next slot
-            e -= delta
-            t  = slot_end                    # advance to next slot boundary
+        current_hour = (env.now % MINUTES_PER_DAY) / 60.0
 
-        # Safety fallback (should never be reached with reasonable inputs)
-        return t - env.now
+        # ----------------------------------------------------------
+        # Find active slot
+        # ----------------------------------------------------------
+        for start_h, end_h, fraction in arrival_slots:
+
+            if start_h <= current_hour < end_h:
+
+                slot_duration_min = (end_h - start_h) * 60
+
+                # Expected arrivals in this slot
+                expected_arrivals_slot = (
+                    base_arrivals_per_day
+                    * weekday_factor
+                    * fraction
+                )
+
+                # NHPP rate λ(t)
+                lambda_t = expected_arrivals_slot / slot_duration_min
+
+                # Numerical safety
+                lambda_t = max(lambda_t, 1e-9)
+
+                return random.expovariate(lambda_t)
+
+        # fallback
+        return 99999
 
     return interarrival
 
@@ -494,12 +459,12 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             # 1. BLOCKS the process pipeline here until a room slot becomes free
             yield self._sala_cc.get(1)
 
-            # print(
-            #     f"[{self.env.now:.2f}] "
-            #     f"ACQUIRED {entity.id} | "
-            #     f"Available={self._sala_cc.level} "
-            #     f"Occupied={5 - self._sala_cc.level}"
-            # )
+            print(
+                f"[{self.env.now:.2f}] "
+                f"ACQUIRED {entity.id} | "
+                f"Available={self._sala_cc.level} "
+                f"Occupied={5 - self._sala_cc.level}"
+            )
             
             # Trace successful allocation
             free_rooms = sala_CC.level
@@ -542,12 +507,12 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             # 1. RETURN the operating room slot back to the pool
             yield self._sala_cc.put(1)
 
-            # print(
-            #     f"[{self.env.now:.2f}] "
-            #     f"RELEASED {entity.id} | "
-            #     f"Available={self._sala_cc.level} "
-            #     f"Occupied={5 - self._sala_cc.level}"
-            # )
+            print(
+                f"[{self.env.now:.2f}] "
+                f"RELEASED {entity.id} | "
+                f"Available={self._sala_cc.level} "
+                f"Occupied={5 - self._sala_cc.level}"
+            )
             
             # Trace successful release
             # self._trace('service_end', entity, "Sala_CC", f"Operating room released. Available: {self._sala_cc.level}")
@@ -1148,15 +1113,12 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # )    
     # ============================================================
     
-    # ============================ DECISIONS ====================
-    # NOTE: arriv_CC_busy_decision was REMOVED.
-    # The pre-check (sala_CC.level > 0) was redundant AND harmful:
-    #   • When level == 0, the DecideBlock had no fallback route, so
-    #     arriving patients were silently dropped instead of queuing.
-    #   • Freed rooms were never claimed because nobody was in the
-    #     Container's get-queue (all had been discarded upstream).
-    # The simpy.Container.get(1) in SalaCC_Seize already blocks and
-    # queues atomically — that IS the gate; no pre-check is needed.
+    # ============================ DECISIONS ==================== 
+    arriv_CC_busy_decision = DecideBlock(
+        "CC_busy", model.env,
+        decision_type="condition_generic",
+        event_logger=event_logger
+    )
 
     origem_paciente_decision = DecideBlock(
         "Origem_Paciente", model.env,
@@ -1197,9 +1159,9 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     # ============================ INCLUDE ALL BLOCKS ====================    
     # Add blocks to model
-    for block in [arrivals_cc,
-                #   delay_ag_cc,
-                #   discharge_arrival,
+    for block in [arrivals_cc, arriv_CC_busy_decision,
+                #   delay_ag_cc, 
+                #   discharge_arrival, 
                   seize_sala_cc,
                   prep_sala_P16, prep_sala_P2, prep_sala_P3a9,
                   origem_paciente_decision, 
@@ -1221,14 +1183,26 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # ====================================================================
     
     # ============================ CONNECT ALL BLOCKS ====================    
-    # FIX: arrivals go directly to the Container gate.
-    # The yield container.get(1) inside SalaCC_Seize is the atomic gate;
-    # it queues entities natively when all 5 rooms are occupied and
-    # releases them one-by-one as each Release_Sala_CC fires put(1).
-    arrivals_cc.connect_to(seize_sala_cc)
+    # arrivals_cc.connect_to(prep_sala_P16)
+    # arrivals_cc.connect_to(seize_sala_cc)
+    arrivals_cc.connect_to(arriv_CC_busy_decision)
 
-    # (removed arriv_CC_busy_decision routing — see comment above)
+    arriv_CC_busy_decision.add_route("Pac_Entra_CC", seize_sala_cc, 
+        condition_generic=lambda e, ctx: sala_CC.level > 0)
+        
+    # arriv_CC_busy_decision.add_route("Pac_Ag_CC", delay_ag_cc, 
+    #     condition_generic=lambda e, ctx: True) # Catch-all fallback (else)
 
+    # arriv_CC_busy_decision.add_route("Pac_Ag_CC", delay_ag_cc, 
+    #     condition_generic=lambda e, ctx: len(Tec_Enfermagem_X.queue) < 2) # (then)
+    
+    # delay_ag_cc.connect_to(arriv_CC_busy_decision)
+
+    # arriv_CC_busy_decision.add_route("Pac_Sai_CC", discharge_arrival, 
+    #     condition_generic=lambda e, ctx: True) # Catch-all fallback (else)
+    
+    
+    
     seize_sala_cc.connect_to(prep_sala_P16)
     prep_sala_P16.connect_to(prep_sala_P2)
     prep_sala_P2.connect_to(prep_sala_P3a9)
