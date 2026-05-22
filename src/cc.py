@@ -1,6 +1,7 @@
 # =====================================================================
 # FILE: hrtn.py
 # =====================================================================
+# -*- coding: utf-8 -*-
 import random
 import math
 import sys
@@ -49,7 +50,7 @@ from desk.visualization.interface import run_visualization
 # ESCOPO GLOBAL
 # ================================================================
 # Explicit daily arrival baseline
-BASE_ARRIVALS_PER_DAY = 30
+BASE_ARRIVALS_PER_DAY = 14
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
@@ -73,11 +74,11 @@ DEFAULT_CAPACITIES = {
 RESOURCE_SCHEDULE = {
     "Eq_Medica": [
         ( 0,  2, 6),
-        ( 2,  4, 6),   # quiet night → reduced staff
+        ( 2,  4, 6),   # quiet night - reduced staff
         ( 4,  6, 6),
         ( 6,  8, 6),
         ( 8, 10, 6),
-        (10, 12, 6),   # peak → full team
+        (10, 12, 6),   # peak - full team
         (12, 14, 6),
         (14, 16, 6),
         (16, 18, 6),
@@ -119,21 +120,39 @@ RESOURCE_SCHEDULE = {
 #     (22, 24, 0.010),
 # ]
 
-ARRIVAL_SLOTS = [
-    ( 0,  2, 0.018),   # 00–02h:  1.8%  ← reduced
-    ( 2,  4, 0.006),   # 02–04h:  0.6%
-    ( 4,  6, 0.008),   # 04–06h:  0.8%
-    ( 6,  8, 0.195),   # 06–08h: 19.5%  ← increased
-    ( 8, 10, 0.135),   # 08–10h: 13.5%
-    (10, 12, 0.162),   # 10–12h: 16.2%
-    (12, 14, 0.118),   # 12–14h: 11.8%
-    (14, 16, 0.132),   # 14–16h: 13.2%
-    (16, 18, 0.115),   # 16–18h: 11.5%
-    (18, 20, 0.045),   # 18–20h:  4.5%  ← reduced
-    (20, 22, 0.038),   # 20–22h:  3.8%
-    (22, 24, 0.028),   # 22–00h:  2.8%
-]
+# ARRIVAL_SLOTS = [
+#     ( 0,  2, 0.018),   # 00–02h:  1.8%  ← reduced
+#     ( 2,  4, 0.006),   # 02–04h:  0.6%
+#     ( 4,  6, 0.008),   # 04–06h:  0.8%
+#     ( 6,  8, 0.195),   # 06–08h: 19.5%  ← increased
+#     ( 8, 10, 0.135),   # 08–10h: 13.5%
+#     (10, 12, 0.162),   # 10–12h: 16.2%
+#     (12, 14, 0.118),   # 12–14h: 11.8%
+#     (14, 16, 0.132),   # 14–16h: 13.2%
+#     (16, 18, 0.115),   # 16–18h: 11.5%
+#     (18, 20, 0.045),   # 18–20h:  4.5%  ← reduced
+#     (20, 22, 0.038),   # 20–22h:  3.8%
+#     (22, 24, 0.028),   # 22–00h:  2.8%
+# ]
 
+
+# ---------------------------------------------------------------
+# Generic time-dependent arrival
+# ---------------------------------------------------------------
+ARRIVAL_SLOTS = [
+    ( 0,  2, 0.035),   # 00–02h:  3.5%
+    ( 2,  4, 0.009),   # 02–04h:  0.9%
+    ( 4,  6, 0.010),   # 04–06h:  1.0%
+    ( 6,  8, 0.186),   # 06–08h: 18.6%
+    ( 8, 10, 0.111),   # 08–10h: 11.1%
+    (10, 12, 0.151),   # 10–12h: 15.1%
+    (12, 14, 0.108),   # 12–14h: 10.8%
+    (14, 16, 0.125),   # 14–16h: 12.5%
+    (16, 18, 0.106),   # 16–18h: 10.6%
+    (18, 20, 0.035),   # 18–20h:  3.5%
+    (20, 22, 0.063),   # 20–22h:  6.3%
+    (22, 24, 0.061),   # 22–00h:  6.1%
+]
 
 
 # Pesos baseados na média diária real dividida pela média global (13.33)
@@ -258,7 +277,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     # Unidade básica para todos os tempos: minutos
     def distribution(tipo):
-        # Arrival rates (per day → per minute if DAYS = 1440)
+        # Arrival rates (per day - per minute if DAYS = 1440)
         # arrival_rate_cc  = 1/53 # per minute        
 
         distributions = {            
@@ -335,6 +354,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             # 6. Processamento de materiais. (P:40,41,42,43,44)
             #'6_processamento_materiais': random.triangular(20, 28, 34),
 
+            # From this part on.. it is not being used.....
             # 4. Pós-oper Encaminha paciente para SRPA (P:31)
             '4_encaminha_srpa': random.triangular(10, 20, 30),
 
@@ -368,30 +388,30 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # OPERATING ROOM CAPACITY GATE  —  5 concurrent patients maximum
     # ═══════════════════════════════════════════════════════════════════════════
     #
-    #   P12a15 starts  →  Sala_CC seized  →  P12a15 ends  →  Sala_CC RELEASED
+    #   P12a15 starts  -  Sala_CC seized  -  P12a15 ends  -  Sala_CC RELEASED
     #   ... (all intermediate blocks: adm, surgery, cleanup)  ← UNCONSTRAINED
-    #   P39 starts     →  Sala_CC seized  →  P39 ends     →  Sala_CC RELEASED
+    #   P39 starts     -  Sala_CC seized  -  P39 ends     -  Sala_CC RELEASED
     #
     # Between P12a15 and P39 the slot was free, allowing unlimited concurrency.
     #
     # WHY simpy.Container IS THE CORRECT TOOL
     # ─────────────────────────────────────────
-    # simpy.Resource  →  request token must be released by the SAME SimPy
+    # simpy.Resource  -  request token must be released by the SAME SimPy
     #                    process that acquired it (held via 'with req:').
     #                    Each DESK block is its own process, so the token
     #                    cannot survive a block transition.
     #
-    # simpy.Container →  Container.get(1)  permanently decrements the count
+    # simpy.Container -  Container.get(1)  permanently decrements the count
     #                    Container.put(1)  permanently increments the count
     #                    get/put are STATELESS one-shot events: they can occur
     #                    in completely DIFFERENT SimPy processes, spanning the
-    #                    entire P12a15 → P39 chain.
+    #                    entire P12a15 - P39 chain.
     #
     # FLOW CORRECT
     # ────────────────────
-    #   ... → P11a/b → [seize_sala_cc] ─(blocks if 5 rooms busy)─►
-    #           → P12a15 → adm → surgery → cleanup → P39
-    #           → [release_sala_cc] → discharge
+    #   ... - P11a/b - [seize_sala_cc] ─(blocks if 5 rooms busy)─►
+    #           - P12a15 - adm - surgery - cleanup - P39
+    #           - [release_sala_cc] - discharge
     #
     # sala_cc.level (0–5) = available rooms; in_use = 5 − level  (max 5)
     # ═══════════════════════════════════════════════════════════════════════════
@@ -435,9 +455,21 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             
             # Trace queue entry in console
             self._trace('queue', entity, "Sala_CC", f"Waiting for operating room. Available: {self._sala_cc.level}")
+
+            # print(
+            #     f'T={self.env.now:.2f} | '
+            #     f'Entity={entity.id} | '
+            #     f'Sala level BEFORE get={self._sala_cc.level}'
+            # )
             
             # 1. BLOCKS the process pipeline here until a room slot becomes free
             yield self._sala_cc.get(1)
+
+            # print(
+            #     f'T={self.env.now:.2f} | '
+            #     f'Entity={entity.id} ENTERED OR | '
+            #     f'Sala level AFTER get={self._sala_cc.level}'
+            # )
             
             # Trace successful allocation
             self._trace('service_start', entity, "Sala_CC", f"Operating room secured. Remaining: {self._sala_cc.level}")
@@ -452,7 +484,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
                 )
             
             # 2. Forward entity to the next block (adm_conf_paciente_P12a15)
-            self.env.process(self.send_to_next(entity))
+            self.env.process(self.send_to_next(entity))            
+            # self.send_to_next(entity)
             yield self.env.timeout(0)
 
     class SalaCC_Release(ProcessBlock):
@@ -489,7 +522,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
                 )
             
             # 2. Forward entity to the next block (e.g., discharge or recovery area)
-            self.env.process(self.send_to_next(entity))
+            self.env.process(self.send_to_next(entity))            
+            # self.send_to_next(entity)
             yield self.env.timeout(0)
 
     # ── Instantiate the two gateway blocks ────────────────────────────────────
@@ -591,19 +625,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
         },
         schedule=RESOURCE_SCHEDULE,
     ))
-    
-    
 
-
-    # Definindo a função que gera o atributo dinamicamente baseado na hora do relógio da simulação
-    def generate_surgery_complexity():
-        current_hour = (model.env.now % 1440) / 60.0
-        # Turno Principal (Dia: 07h às 19h) -> Alta concentração de cirurgias planejadas (Major)
-        if 7.0 <= current_hour < 19.0:
-            return "Major" if random.random() < 0.85 else "Minor"
-        # Turno da Noite -> Predomínio de procedimentos rápidos ou urgências (Minor)
-        else:
-            return "Minor" if random.random() < 0.92 else "Major"
 
     # 1. Criação do Bloco usando a função de chegada calibrada por hora/dia
    
@@ -625,18 +647,72 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
         event_logger=event_logger
     )
     
-    # More reliable attribute injection
-    def inject_surgery_complexity(entity):
-        entity.surgery_complexity = generate_surgery_complexity()
-        # Also store in attributes dict (some frameworks use this)
-        if not hasattr(entity, 'attributes'):
-            entity.attributes = {}
-        entity.attributes['surgery_complexity'] = entity.surgery_complexity
+    # # More reliable attribute injection
+    # def inject_surgery_complexity(entity):
+    #     entity.surgery_complexity = generate_surgery_complexity()
+    #     # Also store in attributes dict (some frameworks use this)
+    #     if not hasattr(entity, 'attributes'):
+    #         entity.attributes = {}
+    #     entity.attributes['surgery_complexity'] = entity.surgery_complexity
+     
+    # arrivals_cc.assign_attributes_callback = inject_surgery_complexity
+    # # Keep the original too as backup
+    # arrivals_cc.assign_attributes(surgery_complexity=generate_surgery_complexity)  
+
+    # # Definindo a função que gera o atributo dinamicamente baseado na hora do relógio da simulação
+    def generate_surgery_size():
+        current_hour = (model.env.now % 1440) / 60.0
+        u = random.random()
+        # -------------------------------------------------
+        # DAY SHIFT - elective/planned surgeries dominate
+        # -------------------------------------------------
+        if 7 <= current_hour < 19:
+            if u < 0.15:    return "Pequena"
+            elif u < 0.75:  return "Media"
+            else:           return "Grande"
+        # -------------------------------------------------
+        # NIGHT SHIFT - emergency/fast procedures dominate
+        # -------------------------------------------------
+        else:
+            if u < 0.92:    return "Pequena"
+            elif u < 0.99:  return "Media"
+            else:           return "Grande"
+
+
+    # def inject_surgery_size(entity):
+    #     surgery_size = generate_surgery_size()
+    #     # Direct attribute
+    #     entity.surgery_size = surgery_size
+    #     # Optional DESK compatibility
+    #     if not hasattr(entity, 'attributes'):
+    #         entity.attributes = {}
+    #     entity.attributes['surgery_size'] = surgery_size
+
+    def get_surgery_size(e):
+        if hasattr(e, 'surgery_size'):
+            return e.surgery_size
+        if hasattr(e, 'attributes'):
+            return e.attributes.get('surgery_size', 'Pequena')
+        return 'Pequena'
+
+    def is_pequeno(e, ctx):
+        return get_surgery_size(e) == "Pequena"
+
+    def is_medio(e, ctx):
+        return get_surgery_size(e) == "Media"
+
+    def is_grande(e, ctx):
+        return get_surgery_size(e) == "Grande"
+
+    # Register ONLY callback
+    # arrivals_cc.assign_attributes_callback = inject_surgery_size
+    arrivals_cc.assign_attributes(surgery_size=generate_surgery_size)
     
-    arrivals_cc.assign_attributes_callback = inject_surgery_complexity
-    # Keep the original too as backup
-    arrivals_cc.assign_attributes(surgery_complexity=generate_surgery_complexity)     
+
+     
     
+
+
     # # # ProcessBlock block: Process with NO resource
     # delay_ag_cc = ProcessBlock(
     #     "Pac_aguarda_lib_CC", model.env,
@@ -1067,7 +1143,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     
     # ============================ DISPOSALS ====================            
-    discharge_arrival = DisposeBlock("Saida_CC_Busy", model.env, event_logger=event_logger)     
+    # discharge_arrival = DisposeBlock("Saida_CC_Busy", model.env, event_logger=event_logger)     
     discharge_srpa = DisposeBlock("Saida_SRPA", model.env, event_logger=event_logger)     
     # ============================================================
 
@@ -1075,7 +1151,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # Add blocks to model
     for block in [arrivals_cc, arriv_CC_busy_decision,
                 #   delay_ag_cc, 
-                  discharge_arrival, 
+                #   discharge_arrival, 
                   seize_sala_cc,
                   prep_sala_P16, prep_sala_P2, prep_sala_P3a9,
                   origem_paciente_decision, 
@@ -1112,8 +1188,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     
     # delay_ag_cc.connect_to(arriv_CC_busy_decision)
 
-    arriv_CC_busy_decision.add_route("Pac_Sai_CC", discharge_arrival, 
-        condition_generic=lambda e, ctx: True) # Catch-all fallback (else)
+    # arriv_CC_busy_decision.add_route("Pac_Sai_CC", discharge_arrival, 
+    #     condition_generic=lambda e, ctx: True) # Catch-all fallback (else)
     
     
     
@@ -1132,8 +1208,6 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     proc_cirurgico_P18.connect_to(proc_cirurgico_P19)
     proc_cirurgico_P19.connect_to(porte_cirurgia_decision)
 
-
-
     # porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, probability=0.4)
     # porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, probability=0.4)
     # porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, probability=0.2)
@@ -1150,61 +1224,10 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # Tarde (13h–19h) ~31%            Strong
     # Noite (19h–7h)  ~23%            Minority
 
-    # Turno           Pequeno Médio (condicional) Grande  Total
-    # Diurno (7h-19h) 15%     50%                 35%     100%
-    # Noturno         80%     15%                 5%      100%
 
-
-
-
-    # porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, 
-    # # Cirurgias pequenas ocorrem 15% entre 7h e 19h, e 80% depois de 18h
-    #     condition_generic=lambda e, ctx: (
-    #         random.random() < 0.15 if 7.0 <= (ctx['time'] % 1440) / 60.0 < 19.0 
-    #         else random.random() < 0.80
-    #     ))
-    # porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, 
-    # # Cirurgias médias ocorrem 53% entre 7h e 19h, de 75% depois de 18h
-    #     condition_generic=lambda e, ctx: (
-    #         random.random() < 0.70 if 7.0 <= (ctx['time'] % 1440) / 60.0 < 19.0 
-    #         else random.random() < 0.15  # Proporção ajustada considerando o resíduo do fluxo anterior
-    #     ))
-    # porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, 
-    #     condition_generic=lambda e, ctx: True)
-
-
-    # === ROBUST WAY: Read attribute safely with fallback ===
-    def get_surgery_complexity(e, ctx):
-        """Safely get surgery_complexity with fallback"""
-        if hasattr(e, 'surgery_complexity'):
-            return e.surgery_complexity
-        elif hasattr(e, 'attributes') and isinstance(e.attributes, dict):
-            return e.attributes.get('surgery_complexity', 'Minor')
-        else:
-            return 'Minor'  # safe default
-
-    def is_pequeno(e, ctx):
-        return get_surgery_complexity(e, ctx) == "Minor"
-
-    def is_medio(e, ctx):
-        return get_surgery_complexity(e, ctx) == "Major"
-
-    def is_grande(e, ctx):
-        # Among Major cases, ~30-40% are Grande
-        return (get_surgery_complexity(e, ctx) == "Major" and 
-                random.random() < 0.25)
-
-    porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, 
-                                      condition_generic=is_pequeno)
-    
-    porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, 
-                                      condition_generic=is_medio)
-    
-    porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, 
-                                      condition_generic=is_grande)
-
-
-
+    porte_cirurgia_decision.add_route("Cir Pequeno", proc_cirurgico_P_P20_025, condition_generic=is_pequeno)
+    porte_cirurgia_decision.add_route("Cir Medio", proc_cirurgico_M_P20_025, condition_generic=is_medio)
+    porte_cirurgia_decision.add_route("Cir Grande", proc_cirurgico_G_P20_025, condition_generic=is_grande)
 
     # ====================
     proc_cirurgico_P_P20_025.connect_to(faz_ex_radio_cir_p_decision)
