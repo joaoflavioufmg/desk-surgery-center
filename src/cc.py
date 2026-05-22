@@ -48,6 +48,9 @@ from desk.visualization.interface import run_visualization
 # ================================================================
 # ESCOPO GLOBAL
 # ================================================================
+# Explicit daily arrival baseline
+BASE_ARRIVALS_PER_DAY = 30
+
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
     "Enfermeiro": 3, 
@@ -134,25 +137,25 @@ ARRIVAL_SLOTS = [
 
 
 # Pesos baseados na média diária real dividida pela média global (13.33)
-# WEEKDAY_FACTORS = {
-#     0: 14.74 / 13.3328,  # Segunda
-#     1: 15.67 / 13.3328,  # Terça
-#     2: 14.98 / 13.3328,  # Quarta (Base da simulação: 2025-01-01)
-#     3: 15.84 / 13.3328,  # Quinta
-#     4: 14.58 / 13.3328,  # Sexta
-#     5: 8.88 / 13.3328,   # Sábado (Menor volume no FDS)
-#     6: 8.64 / 13.3328,   # Domingo (Menor volume no FDS)
-# }
-
 WEEKDAY_FACTORS = {
-    0: 1.25,  # Monday
-    1: 1.30,  # Tuesday
-    2: 1.22,  # Wednesday
-    3: 1.28,  # Thursday
-    4: 1.20,  # Friday
-    5: 0.65,  # Saturday
-    6: 0.60,  # Sunday
+    0: 14.74 / 13.3328,  # Segunda
+    1: 15.67 / 13.3328,  # Terça
+    2: 14.98 / 13.3328,  # Quarta (Base da simulação: 2025-01-01)
+    3: 15.84 / 13.3328,  # Quinta
+    4: 14.58 / 13.3328,  # Sexta
+    5: 8.88 / 13.3328,   # Sábado (Menor volume no FDS)
+    6: 8.64 / 13.3328,   # Domingo (Menor volume no FDS)
 }
+
+# WEEKDAY_FACTORS = {
+#     0: 1.25,  # Monday
+#     1: 1.30,  # Tuesday
+#     2: 1.22,  # Wednesday
+#     3: 1.28,  # Thursday
+#     4: 1.20,  # Friday
+#     5: 0.65,  # Saturday
+#     6: 0.60,  # Sunday
+# }
 
 # ================================================================
 HOURS = 60  # Time conversion factor (base time: Minutos)
@@ -161,31 +164,64 @@ YEARS = 525600
 # ================================================================
 
 
-def make_time_dependent_arrival(base_dist, arrival_slots, env, num_sources=1, start_day_of_week=2):
-        num_slots = len(arrival_slots)
-        
-        def time_dependent_arrival():
-            # 1. Identifica o dia da semana atual na linha do tempo
-            sim_day = int(env.now // 1440)
-            current_day_of_week = (start_day_of_week + sim_day) % 7
-            # day_factor = WEEKDAY_FACTORS[current_day_of_week]
-            day_factor = WEEKDAY_FACTORS.get(current_day_of_week, 1.0)
-            
-            # 2. Localiza a janela de 2 horas do dia
-            current_hour = (env.now % 1440) / 60.0
-            slot_fraction = arrival_slots[-1][2]
-            for start_h, end_h, fraction in arrival_slots:
-                if start_h <= current_hour < end_h:
-                    slot_fraction = fraction
-                    break
-                    
-            # 3. Combina os coeficientes de ajuste tempo-dependente
-            k_total = (slot_fraction * num_slots) * day_factor * 1.35  # extra boost to day
-            
-            base_val = base_dist() if callable(base_dist) else float(base_dist)
-            return (base_val / num_sources) / max(k_total, 0.1)   # avoid division by zero
+def make_nhpp_interarrival(
+    env,
+    arrival_slots,
+    base_arrivals_per_day,
+    weekday_factors,
+    start_day_of_week=2):
 
-        return time_dependent_arrival
+    MINUTES_PER_DAY = 1440
+
+    # Safety validation
+    total_fraction = sum(f for _, _, f in arrival_slots)
+
+    if abs(total_fraction - 1.0) > 1e-6:
+        raise ValueError(
+            f"Arrival slot fractions must sum to 1.0, got {total_fraction}"
+        )
+
+    def interarrival():
+
+        # ----------------------------------------------------------
+        # Current simulation clock
+        # ----------------------------------------------------------
+        sim_day = int(env.now // MINUTES_PER_DAY)
+
+        weekday = (start_day_of_week + sim_day) % 7
+
+        weekday_factor = weekday_factors.get(weekday, 1.0)
+
+        current_hour = (env.now % MINUTES_PER_DAY) / 60.0
+
+        # ----------------------------------------------------------
+        # Find active slot
+        # ----------------------------------------------------------
+        for start_h, end_h, fraction in arrival_slots:
+
+            if start_h <= current_hour < end_h:
+
+                slot_duration_min = (end_h - start_h) * 60
+
+                # Expected arrivals in this slot
+                expected_arrivals_slot = (
+                    base_arrivals_per_day
+                    * weekday_factor
+                    * fraction
+                )
+
+                # NHPP rate λ(t)
+                lambda_t = expected_arrivals_slot / slot_duration_min
+
+                # Numerical safety
+                lambda_t = max(lambda_t, 1e-9)
+
+                return random.expovariate(lambda_t)
+
+        # fallback
+        return 99999
+
+    return interarrival
 
 
 def build_model(final_simulation_time=None, event_logger=None, verbose=True,
@@ -359,44 +395,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     #
     # sala_cc.level (0–5) = available rooms; in_use = 5 − level  (max 5)
     # ═══════════════════════════════════════════════════════════════════════════
-    # sala_CC = simpy.Container(model.env, capacity=5, init=5)
-
-    # TODO: (Não funciona!) Dynamic Operating Room Capacity (5 during day, 3 at night): 
-
     sala_CC = simpy.Container(model.env, capacity=5, init=5)
-    
-    def make_sala_cc_scheduler(env, container):
-        """Dynamically changes the number of available operating rooms by shift"""
-        DAYS = 1440
-        
-        def scheduler():
-            while True:
-                current_hour = (env.now % DAYS) / 60.0
-                
-                # Define capacity by time of day
-                if 19.0 <= current_hour or current_hour < 6.0:   # Night shift
-                    new_capacity = 1
-                else:                                            # Day shift (6h - 19h)
-                    new_capacity = 5
-                
-                # Update container capacity
-                if new_capacity != container.capacity:
-                    # Important: You can only *increase* capacity easily.
-                    # Reducing capacity in SimPy Container is tricky if level > new_capacity
-                    if new_capacity > container.capacity:
-                        container._capacity = new_capacity  # direct access (hack)
-                    else:
-                        # For reduction: we set it, but excess patients stay until they finish
-                        container._capacity = new_capacity
-                    # print(f"[{env.now:.1f}] Sala_CC capacity changed to {new_capacity}")
-                
-                # Check every 60 minutes
-                yield env.timeout(60)
-        
-        return scheduler()
-    
-    # Start dynamic OR capacity scheduler
-    model.env.process(make_sala_cc_scheduler(model.env, sala_CC))
 
     # ── Custom gateway blocks ──────────────────────────────────────────────────
     # These two thin classes are the ONLY place Sala_CC logic lives.
@@ -607,20 +606,18 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             return "Minor" if random.random() < 0.92 else "Major"
 
     # 1. Criação do Bloco usando a função de chegada calibrada por hora/dia
-    # (Substitua 'tempo_base_interchegada' pela sua variável de média original, ex: 45.0)
-    base_dist=lambda: random.weibullvariate(101.8/2, 0.898199)  # ← time-dependent
-    # base_dist=lambda: max(0,random.gauss(14,2))  # ← time-dependent
-    func_chegada_dinamica = make_time_dependent_arrival(base_dist, ARRIVAL_SLOTS, model.env, num_sources=1)
-
+   
     # ============================ ACTIVITIES ====================
     # Create block
     arrivals_cc = CreateBlock(
         "Cheg_CC", model.env,        
-        # inter_arrival_time=make_time_dependent_arrival(            
-        #     base_dist=lambda: 1926/1292 * (1 + 6292.79 * random.betavariate(0.835686, 49.5466)),  # ← time-dependent
-        #     arrival_slots=ARRIVAL_SLOTS,
-        #     num_sources=5),          # ← 5 parallel CreateBlocks),
-        inter_arrival_time=func_chegada_dinamica,
+        inter_arrival_time=make_nhpp_interarrival(
+        env=model.env,
+        arrival_slots=ARRIVAL_SLOTS,
+        base_arrivals_per_day=BASE_ARRIVALS_PER_DAY,
+        weekday_factors=WEEKDAY_FACTORS,
+        start_day_of_week=2
+        ),
         entity_prefix="CC_Patient",
         max_arrivals=None, # Infinito
         first_creation=0.0,
