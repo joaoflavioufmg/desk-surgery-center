@@ -101,94 +101,17 @@ DEFAULT_CAPACITIES = {
 # ================================================================
 BACKGROUND_WORKLOAD = {
     #                      task_mean  gap_mean   ≈ bg_util
-    "Enfermeiro":        {"task": 15, "gap": 30},   # ≈ 85%
+    "Enfermeiro":        {"task": 15, "gap": 38},   # ≈ 85%
     "Farmacia":          {"task": 15, "gap": 45},   # ≈ 83%
-    "Tec_Enfermagem":    {"task": 15, "gap": 15},   # ≈ 81%
-    "Eq_Assistencial_CTI":{"task":50, "gap": 55},  # ≈ 81%
-    "Eq_Medica":         {"task": 15, "gap": 35},   # ≈ 89%
-    "Anestesista":       {"task": 15, "gap": 20},   # ≈ 86%
-    "Tec_Radiologia":    {"task": 30, "gap": 65},   # ≈ 86%
-    "Eq_Radiologia":     {"task": 30, "gap": 65},   # ≈ 86%
+    "Tec_Enfermagem":    {"task": 15, "gap": 25},   # ≈ 81%
+    "Eq_Assistencial_CTI":{"task":50, "gap": 15},  # ≈ 81%
+    "Eq_Medica":         {"task": 15, "gap": 45},   # ≈ 89%
+    "Anestesista":       {"task": 15, "gap": 30},   # ≈ 86%
+    "Tec_Radiologia":    {"task": 30, "gap": 15},   # ≈ 86%
+    "Eq_Radiologia":     {"task": 40, "gap": 15},   # ≈ 86%
     "Func_CME":          {"task": 35, "gap": 45},   # ≈ 85%
-    "Eq_Higienizacao":   {"task": 30, "gap": 35},   # ≈ 80%
+    "Eq_Higienizacao":   {"task": 30, "gap": 15},   # ≈ 80%
 }
-
-# ----------------------------------------------------------------
-# BACKGROUND WORKLOAD SCHEDULE
-# ----------------------------------------------------------------
-# Controls HOW ACTIVE background workers are during each 2-hour
-# time window.  This is the mechanism that makes night utilization
-# drop when there are no patient arrivals.
-#
-# Each resource maps to a list of (start_h, end_h, load_factor).
-#   load_factor = 1.0  → normal task/gap from BACKGROUND_WORKLOAD
-#   load_factor = 0.5  → workers sleep 2× longer between tasks
-#                        (gap_effective = gap_base / load_factor)
-#   load_factor = 0.0  → workers do nothing (pure idle); only
-#                        a tiny "heartbeat" gap keeps SimPy alive
-#
-# Resources NOT listed here run at load_factor = 1.0 all day.
-#
-# Effective background utilization at load_factor f:
-#   util ≈ task / (task + gap_base/f)
-#
-# Example — Enfermeiro (task=45, gap=8) at load_factor=0.0:
-#   util ≈ 0%   (no tasks, just idle gap heartbeat of 9999 min)
-# ----------------------------------------------------------------
-BACKGROUND_SCHEDULE = {
-    # Resource           [(start_h, end_h, load_factor), ...]
-    "Enfermeiro": [
-        ( 0,  6, 0.05),   # night  — near idle
-        ( 6, 18, 1.00),   # day    — full background load
-        (18, 24, 0.20),   # evening — reduced
-    ],
-    "Farmacia": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
-    ],
-    "Tec_Enfermagem": [
-        ( 0,  6, 0.10),
-        ( 6, 18, 1.00),
-        (18, 24, 0.25),
-    ],
-    "Eq_Assistencial_CTI": [
-        ( 0,  6, 0.10),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
-    ],
-    "Eq_Medica": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
-    ],
-    "Anestesista": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.15),
-    ],
-    "Tec_Radiologia": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
-    ],
-    "Eq_Radiologia": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
-    ],
-    "Func_CME": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
-    ],
-    "Eq_Higienizacao": [
-        ( 0,  6, 0.10),
-        ( 6, 18, 1.00),
-        (18, 24, 0.30),
-    ],
-}
-
 # Set to False to disable background load and restore original behaviour.
 ENABLE_BACKGROUND_WORKLOAD = True
 
@@ -458,7 +381,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             '1_organiza_sala_e_kits': random.triangular(20, 25, 30),
 
             # 2. Transporte do paciente do CTI ao Centro Cirúrgico (P:11)
-            '2_transporte_CTI_CC': random.triangular(20, 80, 150),
+            '2_transporte_CTI_CC': random.triangular(20, 40, 60),
 
             # 2. Transporte do paciente de sua origem ao Centro Cirúrgico (P:11)
             '2_transporte_origem_CC': random.triangular(10, 15, 20),
@@ -594,99 +517,30 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
         "Eq_Higienizacao":    Eq_Higienizacao,
     }
 
-    def _bg_load_factor(res_name, current_minute):
+    def background_worker(env, simpy_resource, task_mean, gap_mean):
         """
-        Return the background load_factor for res_name at current_minute.
+        Simulates one unit of a resource performing unmodelled background tasks.
 
-        Reads BACKGROUND_SCHEDULE; falls back to 1.0 if the resource has no
-        schedule or the current hour falls outside every defined slot.
-        A load_factor of 0.0 is clamped to a tiny epsilon so the worker never
-        hangs forever waiting on a zero-rate timeout.
+        Algorithm
+        ─────────
+        1. Wait Exp(gap_mean) minutes — the staff member is free / between tasks.
+        2. Request the resource (non-preemptive, standard SimPy request).
+        3. Hold it for Exp(task_mean) minutes — performing the background task.
+        4. Release it.  Repeat indefinitely.
+
+        Using Exponential distributions gives a memoryless (Markov) model.
+        Replace with triangular or lognormal if empirical data is available.
         """
-        slots = BACKGROUND_SCHEDULE.get(res_name)
-        if not slots:
-            return 1.0
-        hour = (current_minute % 1440) / 60.0
-        for start_h, end_h, factor in slots:
-            if start_h <= hour < end_h:
-                return max(factor, 1e-6)
-        return 1.0   # fallback: last slot or unscheduled hour
-
-    def background_worker(env, simpy_resource, res_name, unit_idx,
-                          task_mean, gap_mean, evt_logger):
-        """
-        Simulates one unit of a resource performing unmodelled background tasks
-        AND writes start/complete rows to the EventLogger so that downstream
-        analysis scripts (cc_event_log_analysis.py, resource_2h_slots.py) can
-        account for this workload when computing resource utilization.
-
-        Time-of-day awareness
-        ─────────────────────
-        Before each inter-task gap the worker reads BACKGROUND_SCHEDULE to get
-        the current load_factor f ∈ (0, 1].  The effective gap becomes:
-
-            gap_effective = Exp(gap_base / f)
-
-        At f=1.0  → normal rate, gap mean = gap_base  (full daytime load)
-        At f=0.2  → gap mean = gap_base / 0.2 = 5× longer  (evening)
-        At f=0.05 → gap mean = gap_base / 0.05 = 20× longer (near idle at night)
-
-        This makes the number of tasks — and therefore resource-busy minutes —
-        track the operational intensity of each shift without adding extra
-        SimPy processes or re-launching workers.
-
-        CSV row format produced (one pair per task):
-            case_id   : BG_{res_name}_u{unit_idx}_t{task_counter}  (unique per task)
-            activity  : BG_{res_name}
-            lifecycle : "start" / "complete"
-            resource  : {res_name}   (must match DEFAULT_CAPACITIES keys)
-            timestamp : env.now at seize / env.now after task
-        """
-        task_counter = 0
-        activity_name = f"BG_{res_name}"
-
         while True:
-            # ── 1. Time-aware inter-task idle gap ─────────────────────────────
-            # Read schedule at the START of the gap; if the worker sleeps across
-            # a shift boundary the gap will simply be slightly inaccurate — this
-            # is acceptable for a background approximation.
-            f = _bg_load_factor(res_name, env.now)
-            effective_gap_mean = gap_mean / f          # larger gap → fewer tasks at night
-            gap = random.expovariate(1.0 / effective_gap_mean)
+            # Inter-task idle gap — staff is available for surgical work
+            gap = random.expovariate(1.0 / gap_mean)
             yield env.timeout(gap)
 
-            # ── 2. Seize one unit of the resource ─────────────────────────────
-            task_counter += 1
-            case_id = f"BG_{res_name}_u{unit_idx}_t{task_counter}"
-
+            # Seize one unit of the resource for the background task
             with simpy_resource.request() as req:
-                yield req  # blocks until a unit is free
-
-                # ── 3. Log task START ──────────────────────────────────────────
-                if evt_logger is not None:
-                    evt_logger.log_event(
-                        case_id=case_id,
-                        activity=activity_name,
-                        timestamp=env.now,
-                        lifecycle="start",
-                        resource=res_name,
-                    )
-
-                # ── 4. Hold the resource for the task duration ─────────────────
-                # Task duration is NOT scaled — once started, a task takes as
-                # long as it takes regardless of the hour.
+                yield req
                 task_duration = random.expovariate(1.0 / task_mean)
                 yield env.timeout(task_duration)
-
-                # ── 5. Log task COMPLETE ───────────────────────────────────────
-                if evt_logger is not None:
-                    evt_logger.log_event(
-                        case_id=case_id,
-                        activity=activity_name,
-                        timestamp=env.now,
-                        lifecycle="complete",
-                        resource=res_name,
-                    )
             # Resource released automatically at end of 'with' block
 
     if ENABLE_BACKGROUND_WORKLOAD:
@@ -695,19 +549,15 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             if res_obj is None:
                 continue
             # Launch one independent background worker per resource UNIT so
-            # that the total background load scales with staffing levels and
-            # workers can run truly in parallel (each holds at most 1 unit).
+            # that the total background load scales with staffing levels.
             capacity = DEFAULT_CAPACITIES.get(res_name, 1)
             for _unit in range(capacity):
                 model.env.process(
                     background_worker(
                         env=model.env,
                         simpy_resource=res_obj,
-                        res_name=res_name,
-                        unit_idx=_unit,
                         task_mean=params["task"],
                         gap_mean=params["gap"],
-                        evt_logger=event_logger,   # ← passed through to EventLogger
                     )
                 )
 
