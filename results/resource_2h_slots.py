@@ -152,17 +152,62 @@ fig = px.imshow(
     matrix_utilization,
     labels=dict(x="Intervalo do Dia (Janelas de 2h)", y="Profissional (Individual)", color="Ocupação (%)"),
     x=matrix_utilization.columns, y=matrix_utilization.index,
-    color_continuous_scale="Viridis", zmin=0, zmax=100, aspect="auto"
+    # color_continuous_scale="Viridis", zmin=0, zmax=100, aspect="auto"
+    color_continuous_scale=[
+    [0.0,  "#f9f9f9"],   # Light Green (low)
+    [0.3,  "#7daf42"],   # Green-Yellow
+    [0.5,  "#b6be0a"],   # Yellow (warning) # ba9d08
+    [0.7,  "#af4246"],   # Orange #af7442
+    [1.0,  "#5b0a15"]    # Dark Red (high)
+    ], 
+    zmin=0, 
+    zmax=100, 
+    aspect="auto"
 )
+
+# <<< THIS PART ADDS INTERNAL GRIDLINES >>>
+fig.update_traces(
+    xgap=1,
+    ygap=1
+)
+
 fig.update_traces(hovertemplate="Profissional: %{y}<br>Horário: %{x}<br>Ocupação: %{z:.1f}%<extra></extra>")
+
 fig.update_layout(
     title=dict(
         text="<b>TAXA DE OCUPAÇÃO </b><br><span style='font-size:12px; color:#2e2e2e'>Métrica calibrada apenas para o efetivo cirúrgico executado</span>",
         font=dict(color="#2e2e2e", family="monospace")
     ),
     paper_bgcolor="#e6e7e7", plot_bgcolor="#cfcfcf", font=dict(color="#2e2e2e", family="monospace"),
-    xaxis_tickangle=-45, height=750, width=1100
+    xaxis_tickangle=-45, height=750, width=1100)
+
+    # === IMPROVED LAYOUT WITH VISIBLE GRID ===
+fig.update_layout(
+    title=dict(
+        text="<b>TAXA DE OCUPAÇÃO </b><br><span style='font-size:12px; color:#2e2e2e'>Métrica calibrada apenas para o efetivo cirúrgico executado</span>",
+        font=dict(color="#2e2e2e", family="monospace")
+    ),
+    paper_bgcolor="#e6e7e7", 
+    plot_bgcolor="#cfcfcf", 
+    font=dict(color="#2e2e2e", family="monospace"),
+    xaxis_tickangle=-45, 
+    height=750, 
+    width=1100
 )
+
+# Force grid lines visibility (this is the key part)
+fig.update_xaxes(
+    showgrid=True,
+    gridcolor="rgba(120,120,120,0.25)",
+    gridwidth=1
+)
+
+fig.update_yaxes(
+    showgrid=True,
+    gridcolor="rgba(120,120,120,0.25)",
+    gridwidth=1
+)
+
 
 fig.write_html(OUTPUT_HTML)
 print(f"✓ Gráfico de slots de 2h salvo com sucesso → {OUTPUT_HTML}")

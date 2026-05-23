@@ -254,21 +254,33 @@ fig = make_subplots(
 fig.add_trace(go.Bar(x=arrival_counts["bin_start_dt"], y=arrival_counts["count"], name="Chegadas (Pacientes)", marker_color=COLORS["accent1"], opacity=0.85), row=1, col=1)
 
 # Gráfico 2: Linhas Temporais
-fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["avg_census"], mode='lines+markers', name="Censo Médio", line=dict(color=COLORS["accent2"], width=3), marker=dict(size=6)), row=2, col=1)
+fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["avg_census"], mode='lines+markers', name="Média de Pacientes no CC", line=dict(color=COLORS["accent2"], width=3), marker=dict(size=6)), row=2, col=1)
 fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["total_completed"], mode='lines+markers', name="Cirurgias Concluídas / Dia", line=dict(color=COLORS["completed"], width=2.5, dash="dash"), marker=dict(size=6)), row=2, col=1)
-fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["total_cancelled"], mode='lines+markers', name="Cirurgias Canceladas / Dia", line=dict(color=COLORS["cancelled"], width=2.5, dash="dot"), marker=dict(size=6)), row=2, col=1)
+# fig.add_trace(go.Scatter(x=metrics_day["day"], y=metrics_day["total_cancelled"], mode='lines+markers', name="Cirurgias Canceladas / Dia", line=dict(color=COLORS["cancelled"], width=2.5, dash="dot"), marker=dict(size=6)), row=2, col=1)
 
-# Gráfico 3: Utilização Agrupada
-for shift, color in zip(["Manhã", "Tarde", "Noite"], [COLORS["morning"], COLORS["afternoon"], COLORS["night"]]):
+# ==================== GRÁFICO 3 - ALTERADO ====================
+# Gráfico 3: Utilização Agrupada → Ordem correta + Legenda à direita
+shift_order = ["Noite", "Tarde", "Manhã"]
+color_map = {
+    "Manhã": COLORS["morning"],
+    "Tarde": COLORS["afternoon"],
+    "Noite": COLORS["night"]
+}
+
+for shift in shift_order:
     fig.add_trace(
         go.Bar(
-            y=resource_utilization_pct.index, x=resource_utilization_pct[shift], 
-            name=shift, orientation='h', marker_color=color,
+            y=resource_utilization_pct.index, 
+            x=resource_utilization_pct[shift], 
+            name=shift, 
+            orientation='h', 
+            marker_color=color_map[shift],
             hovertemplate=f"Profissional: %{{y}}<br>Turno: {shift}<br>Ocupação: %{{x:.1f}}%"
         ),
         row=3, col=1
     )
 
+# Layout atualizado com legenda à direita
 fig.update_layout(
     title=dict(
         text=f"<b>CENTRO CIRÚRGICO · PERFORMANCE E CONSUMO DE CAPACIDADE</b><br><span style='font-size:12px; color:{COLORS['subtext']}'>Análise de logs de simulação </span>",
@@ -279,7 +291,18 @@ fig.update_layout(
     font=dict(color=COLORS["text"], family="monospace"),
     barmode='group',
     height=1600,
-    showlegend=True
+    showlegend=True,
+    legend=dict(
+        orientation="v",
+        yanchor="middle",
+        y=0.23,                    # Alinhado com o Gráfico 3
+        xanchor="left",
+        x=1.02,                    # Posicionado à direita
+        bgcolor="rgba(255,255,255,0.85)",
+        bordercolor=COLORS["grid"],
+        borderwidth=1,
+        font=dict(size=12, color=COLORS["text"])
+    )
 )
 
 fig.update_xaxes(showgrid=True, gridcolor=COLORS["grid"], zeroline=False)
@@ -288,5 +311,4 @@ fig.update_xaxes(title_text="Quantidade Diária / Censo de Pacientes", row=2, co
 fig.update_xaxes(title_text="Taxa de Ocupação (%)", row=3, col=1)
 
 fig.write_html(OUTPUT_HTML)
-print(f"✓ Dashboard interativo gerado com subtítulo atualizado no Censo → {OUTPUT_HTML}")
-
+print(f"✓ Dashboard interativo gerado → {OUTPUT_HTML}")
