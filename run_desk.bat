@@ -6,6 +6,10 @@ echo =========================================================
 echo [1/3] Executando o Modelo de Simulacao (cc.py)...
 @REM desk-sim -m src/cc.py --mode visualization
 desk-sim -m src/cc.py --mode single
+@REM desk-sim -m src/cc-1.py --mode single           
+@REM desk-sim -m src/cc-2.py --mode single
+@REM desk-sim -m src/cc-3.py --mode single
+@REM desk-sim -m src/cc-4.py --mode single
 @REM desk-sim -m src/cc.py --mode replications
 @REM desk-sim -m src/cc.py --mode factorial
 if %errorlevel% neq 0 (
