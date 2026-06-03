@@ -49,12 +49,8 @@ from desk.visualization.interface import run_visualization
 # ================================================================
 # ESCOPO GLOBAL
 # ================================================================
-# Scenario-planning knob: change this value to explore different
-# demand levels (e.g. 14 = baseline, 18 = growth scenario, 30 = stress test).
-# WEEKDAY_FACTORS below express RELATIVE weights across days-of-week and
-# are intentionally independent of this number — weekends will always be
-# ~55–69 % of whatever daily volume you set here.
-BASE_ARRIVALS_PER_DAY = 18
+# Explicit daily arrival baseline
+BASE_ARRIVALS_PER_DAY = 16
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
@@ -267,24 +263,9 @@ RESOURCE_SCHEDULE = {
 
 
 # ---------------------------------------------------------------
-# Time-varying arrival profiles — SEPARATE for weekdays and weekends
+# Generic time-dependent arrival
 # ---------------------------------------------------------------
-# WHY TWO PROFILES?
-# ─────────────────
-# On weekdays the Centro Cirúrgico operates ~06h–22h with a broad
-# morning–afternoon peak.  On weekends only urgent/emergency cases
-# are performed, concentrated in the morning (≈06h–14h) with a
-# very steep fall-off afterward.
-# Using a single 24-slot weekday profile with only a reduced 'wf'
-# factor still spreads arrivals across the full 24-slot weekday
-# window; the inversion walk then crosses day boundaries mid-slot
-# and can pick up the wrong weekday factor for part of the weekend
-# day — producing weekday-level rates on Saturday/Sunday.
-# Separate profiles eliminate this entirely: the slot boundaries
-# themselves are correct for each day type.
-
-# Weekday profile (Monday–Friday): broad operating window
-ARRIVAL_SLOTS_WEEKDAY = [
+ARRIVAL_SLOTS = [
     ( 0,  2, 0.035),   # 00–02h:  3.5%
     ( 2,  4, 0.009),   # 02–04h:  0.9%
     ( 4,  6, 0.010),   # 04–06h:  1.0%
@@ -299,59 +280,27 @@ ARRIVAL_SLOTS_WEEKDAY = [
     (22, 24, 0.061),   # 22–00h:  6.1%
 ]
 
-# Weekend profile (Saturday–Sunday): concentrated morning window,
-# minimal activity outside 06h–16h.
-# Fractions must also sum to 1.0 — they represent the SHAPE of
-# the within-day distribution; the VOLUME is governed by wf × base.
-ARRIVAL_SLOTS_WEEKEND = [
-    ( 0,  6, 0.030),   # 00–06h:  3.0%  — overnight urgencies only
-    ( 6,  8, 0.210),   # 06–08h: 21.0%  — morning ramp-up
-    ( 8, 10, 0.280),   # 08–10h: 28.0%  — peak
-    (10, 12, 0.220),   # 10–12h: 22.0%  — late morning
-    (12, 14, 0.140),   # 12–14h: 14.0%  — afternoon taper
-    (14, 16, 0.080),   # 14–16h:  8.0%  — low afternoon
-    (16, 24, 0.040),   # 16–24h:  4.0%  — evening/night minimal
-]
-# Validate: 0.030+0.210+0.280+0.220+0.140+0.080+0.040 = 1.000 ✓
 
-# Keep the old name as an alias so any external reference still works.
-ARRIVAL_SLOTS = ARRIVAL_SLOTS_WEEKDAY
-
-# ---------------------------------------------------------------
-# Day-of-week volume factors  (INDEPENDENT of BASE_ARRIVALS_PER_DAY)
-# ---------------------------------------------------------------
-# These are PURE RELATIVE WEIGHTS derived from observed historical means.
-# The denominator is the fixed historical global mean (≈14.38) and must
-# NOT reference BASE_ARRIVALS_PER_DAY — otherwise changing the base for
-# scenario planning would cancel out in the product BASE × wf and every
-# scenario would produce identical volumes.
-#
-# How it works:
-#   expected_arrivals_day_d = BASE_ARRIVALS_PER_DAY × wf[d]
-#
-# Changing BASE scales ALL days proportionally while the weekend
-# penalty (wf≈0.55–0.69) is preserved in every scenario.
-#
-# Source data (13 weeks of observations):
-#   Segunda=16.38  Terça=17.46  Quarta=16.17  Quinta=17.31
-#   Sexta=15.54    Sábado=9.92  Domingo=7.85
-#   Historical global mean = (16.38+17.46+16.17+17.31+15.54+9.92+7.85)/7 ≈ 14.38
-_HIST_GLOBAL_MEAN = 14.375714285714286   # fixed — do NOT replace with BASE_ARRIVALS_PER_DAY
-
+# Pesos baseados na média diária real dividida pela média global (13.33)
 WEEKDAY_FACTORS = {
-    0: 16.38 / _HIST_GLOBAL_MEAN,  # Segunda-feira  (Monday)    ≈ 1.139
-    1: 17.46 / _HIST_GLOBAL_MEAN,  # Terça-feira    (Tuesday)   ≈ 1.214
-    2: 16.17 / _HIST_GLOBAL_MEAN,  # Quarta-feira   (Wednesday) ≈ 1.125  ← start_day_of_week=2
-    3: 17.31 / _HIST_GLOBAL_MEAN,  # Quinta-feira   (Thursday)  ≈ 1.204
-    4: 15.54 / _HIST_GLOBAL_MEAN,  # Sexta-feira    (Friday)    ≈ 1.081
-    5:  9.92 / _HIST_GLOBAL_MEAN,  # Sábado         (Saturday)  ≈ 0.690  ← weekend
-    6:  7.85 / _HIST_GLOBAL_MEAN,  # Domingo        (Sunday)    ≈ 0.546  ← weekend
+    0: 14.74 / 13.3328,  # Segunda
+    1: 15.67 / 13.3328,  # Terça
+    2: 14.98 / 13.3328,  # Quarta (Base da simulação: 2025-01-01)
+    3: 15.84 / 13.3328,  # Quinta
+    4: 14.58 / 13.3328,  # Sexta
+    5: 8.88 / 13.3328,   # Sábado (Menor volume no FDS)
+    6: 8.64 / 13.3328,   # Domingo (Menor volume no FDS)
 }
-# Scenario examples with BASE_ARRIVALS_PER_DAY:
-#   BASE=14.38 → Sat≈9.92,  Sun≈7.85  (historical baseline)
-#   BASE=16    → Sat≈11.0,  Sun≈8.7   (growth scenario)
-#   BASE=20    → Sat≈13.8,  Sun≈10.9  (stress scenario)
-# The weekend:weekday ratio is ~0.60–0.69 in every scenario.
+
+# WEEKDAY_FACTORS = {
+#     0: 1.25,  # Monday
+#     1: 1.30,  # Tuesday
+#     2: 1.22,  # Wednesday
+#     3: 1.28,  # Thursday
+#     4: 1.20,  # Friday
+#     5: 0.65,  # Saturday
+#     6: 0.60,  # Sunday
+# }
 
 # ================================================================
 HOURS = 60  # Time conversion factor (base time: Minutos)
@@ -365,41 +314,19 @@ def make_nhpp_interarrival(
     arrival_slots,
     base_arrivals_per_day,
     weekday_factors,
-    start_day_of_week=2,
-    arrival_slots_weekend=None,
-    weekend_days=(5, 6)):
+    start_day_of_week=2):
     """
-    Piecewise-constant Non-Homogeneous Poisson Process — CORRECT implementation
-    with separate weekday / weekend arrival profiles.
+    Piecewise-constant Non-Homogeneous Poisson Process — CORRECT implementation.
 
     WHY THE PREVIOUS VERSION WAS WRONG
     ────────────────────────────────────
-    The old code used a single ``arrival_slots`` profile for every day.
-    The inversion walk steps forward slot-by-slot; when it crossed a midnight
-    boundary it called ``_lambda_at`` with the new time and picked up the
-    correct weekday factor (wf)—but ``_slot_end_absolute`` still used the
-    WEEKDAY slot boundaries to decide where the next boundary was.  On a
-    weekend day the slot widths from the weekday profile were used, so the
-    walk could land inside a slot whose *boundary* placed ``t`` at a point
-    where the day-index integer changed back to a weekday, inadvertently
-    applying a weekday ``wf`` for part of the weekend day.  Over many days
-    this inflated the simulated weekend volume toward weekday levels.
-
-    A second issue: ``BASE_ARRIVALS_PER_DAY`` was set to 16 while
-    ``WEEKDAY_FACTORS`` were calibrated with denominator 13.33 (a different
-    reference mean), so the expected daily arrivals were consistently
-    over-estimated for every day type.
-
-    FIXES
-    ──────
-    1. ``arrival_slots_weekend`` — a separate profile for days in
-       ``weekend_days`` (default: Python weekdays 5=Sat, 6=Sun).
-       Both ``_lambda_at`` AND ``_slot_end_absolute`` select the right
-       profile based on the actual weekday, ensuring the slot boundaries
-       are always consistent with the rate computation.
-    2. ``BASE_ARRIVALS_PER_DAY`` is now set to the true historical daily
-       mean so that ``wf = historical_mean_d / global_mean`` gives:
-           E[arrivals on day d] = BASE × wf[d] = historical_mean_d  ✓
+    The old code called random.expovariate(λ_current_slot) and returned that
+    value directly as the interarrival time.  This is only valid when the next
+    arrival is guaranteed to fall inside the *same* slot.  For low-rate slots
+    (e.g. 02-04h with fraction=0.009) the mean interarrival drawn is ~16 hours,
+    jumping clean over the entire peak daytime window (06-18h = 78% of daily
+    volume).  The simulation produced ~8 arrivals/day instead of 14, with entire
+    days having only 1-2 patients.
 
     CORRECT ALGORITHM — Piecewise Inversion Method
     ────────────────────────────────────────────────
@@ -409,71 +336,42 @@ def make_nhpp_interarrival(
        position t: Δ = λ_slot × (slot_end − t).
     4. If E ≤ Δ  →  the next arrival lands inside this slot at t + E / λ_slot.
        If E > Δ  →  subtract Δ, advance t to the next slot boundary, repeat.
-    5. Correctly inherits the day-of-week factor AND the correct slot profile
-       as t crosses midnight.
+    5. Correctly inherits the day-of-week factor as t crosses midnight.
 
-    Parameters
-    ──────────
-    env                   : simpy.Environment
-    arrival_slots         : list[(start_h, end_h, fraction)]  weekday profile
-    base_arrivals_per_day : float  historical global daily mean (≈14.38)
-    weekday_factors       : dict {weekday_int: float}  wf = day_mean / global_mean
-    start_day_of_week     : int  Python weekday (0=Mon…6=Sun) of simulation t=0
-    arrival_slots_weekend : list[(start_h, end_h, fraction)] or None
-                            Weekend profile; if None falls back to arrival_slots.
-    weekend_days          : tuple of weekday ints treated as weekend (default (5,6))
+    This is mathematically equivalent to the inversion of the integrated rate
+    function Λ(t) = ∫₀ᵗ λ(s)ds, and is the standard approach for
+    piecewise-constant NHPPs (Lewis & Shedler 1979).
     """
 
     MINUTES_PER_DAY = 1440
 
-    _slots_weekday = arrival_slots
-    _slots_weekend = arrival_slots_weekend if arrival_slots_weekend is not None else arrival_slots
+    # Safety validation
+    total_fraction = sum(f for _, _, f in arrival_slots)
+    if abs(total_fraction - 1.0) > 1e-6:
+        raise ValueError(
+            f"Arrival slot fractions must sum to 1.0, got {total_fraction}"
+        )
 
-    # Safety validation — both profiles must partition [0, 24)
-    for label, slots in (("weekday", _slots_weekday), ("weekend", _slots_weekend)):
-        total = sum(f for _, _, f in slots)
-        if abs(total - 1.0) > 1e-6:
-            raise ValueError(
-                f"Arrival slot fractions ({label}) must sum to 1.0, got {total:.6f}"
-            )
-
-    def _weekday_and_slots(absolute_minute):
-        """Return (weekday_int, wf, slot_profile) for the given absolute minute."""
+    def _lambda_at(absolute_minute):
+        """Return the arrival rate (arrivals/min) at a given absolute minute."""
         day_index = int(absolute_minute // MINUTES_PER_DAY)
         weekday   = (start_day_of_week + day_index) % 7
         wf        = weekday_factors.get(weekday, 1.0)
-        slots     = _slots_weekend if weekday in weekend_days else _slots_weekday
-        return weekday, wf, slots
-
-    def _lambda_at(absolute_minute):
-        """Return the arrival rate (arrivals/min) at a given absolute minute.
-
-        Selects the correct slot profile (weekday vs weekend) based on the
-        computed calendar weekday, ensuring the weekend volume-factor (wf) is
-        applied consistently for the FULL weekend day.
-        """
-        _, wf, slots = _weekday_and_slots(absolute_minute)
-        hour = (absolute_minute % MINUTES_PER_DAY) / 60.0
-        for start_h, end_h, fraction in slots:
+        hour      = (absolute_minute % MINUTES_PER_DAY) / 60.0
+        for start_h, end_h, fraction in arrival_slots:
             if start_h <= hour < end_h:
                 slot_min = (end_h - start_h) * 60
                 return max(base_arrivals_per_day * wf * fraction / slot_min, 1e-9)
         return 1e-9  # safety fallback
 
     def _slot_end_absolute(absolute_minute):
-        """Return the absolute minute at which the current slot ends.
-
-        Uses the SAME profile as _lambda_at (weekday or weekend) so that the
-        slot boundaries seen by the inversion walk are always consistent with
-        the rate that was applied, preventing day-index drift across midnight.
-        """
+        """Return the absolute minute at which the current slot ends."""
         day_start = int(absolute_minute // MINUTES_PER_DAY) * MINUTES_PER_DAY
-        _, _, slots = _weekday_and_slots(absolute_minute)
         hour = (absolute_minute % MINUTES_PER_DAY) / 60.0
-        for start_h, end_h, _ in slots:
+        for start_h, end_h, _ in arrival_slots:
             if start_h <= hour < end_h:
                 return day_start + end_h * 60
-        # Fallback: advance to the start of the next day
+        # At exact midnight boundary — start of first slot of next day
         return day_start + MINUTES_PER_DAY
 
     def interarrival():

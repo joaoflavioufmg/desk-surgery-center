@@ -1,9 +1,7 @@
-
 1. Capacity & Infrastructure Scenarios
 
 Increase to 6 operating rooms (what is the impact on throughput, waiting time, and occupancy?)
 Reduce to 4 operating rooms (e.g., one room under maintenance) — how much does performance degrade?
-Dynamic capacity: Reduce to 3 rooms at night (as you asked earlier) — does it create bottlenecks or save costs?
 Add a dedicated emergency OR (separate from elective) during night/weekend.
 
 2. Demand & Arrival Scenarios
