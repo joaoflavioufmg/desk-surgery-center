@@ -17,6 +17,7 @@ INPUT_FILE  = "cc_event_log.csv"
 OUTPUT_HTML = "resource_2h_utilization.html"
 BASE_DATETIME = pd.Timestamp("2025-01-01 03:00:00")
 SIM_DURATION = 55_000
+# SIM_DURATION    = 525_600                  
 
 
 # ================================================================

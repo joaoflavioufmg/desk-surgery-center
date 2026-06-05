@@ -24,6 +24,7 @@ warnings.filterwarnings("ignore")
 INPUT_FILE      = "cc_event_log.csv"      
 OUTPUT_HTML     = "cc_event_log_dashboard.html"
 SIM_DURATION    = 55_000                  
+# SIM_DURATION    = 525_600                  
 BASE_DATETIME   = pd.Timestamp("2025-01-01 03:00:00")  
 
 # ================================================================

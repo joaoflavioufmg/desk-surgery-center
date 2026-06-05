@@ -6,6 +6,8 @@ import random
 import math
 import sys
 import simpy                          # ← required for the Sala_CC capacity gate
+import matplotlib.pyplot as plt
+import numpy as np  
 from desk.stats.factorial import FactorialExperiment
 from desk.stats.replication import ReplicationFramework    
 from desk.analytics.financial import FinancialAnalyzer
@@ -37,12 +39,12 @@ from desk.visualization.interface import run_visualization
 # Desk-sim: DIST-FIT Which is the best data distribution?
 # ================================================================
 # desk-distfit -d src/input_data/1_int_cheg.txt --max-sample 500
-# desk-distfit -d src/input_data/2_adm_conf.txt
-# desk-distfit -d src/input_data/3_ato_anestetico.txt
-# desk-distfit -d src/input_data/cir_p.txt
-# desk-distfit -d src/input_data/cir_m.txt
-# desk-distfit -d src/input_data/cir_g.txt
-# desk-distfit -d src/input_data/3_pos_cir.txt
+# desk-distfit -d src/input_data/2_adm_conf.txt --max-sample 500
+# desk-distfit -d src/input_data/3_ato_anestetico.txt --max-sample 500
+# desk-distfit -d src/input_data/cir_p.txt --max-sample 500
+# desk-distfit -d src/input_data/cir_m.txt --max-sample 500
+# desk-distfit -d src/input_data/cir_g.txt --max-sample 500
+# desk-distfit -d src/input_data/3_pos_cir.txt --max-sample 500
 
 
 
@@ -54,7 +56,7 @@ from desk.visualization.interface import run_visualization
 # WEEKDAY_FACTORS below express RELATIVE weights across days-of-week and
 # are intentionally independent of this number — weekends will always be
 # ~55–69 % of whatever daily volume you set here.
-BASE_ARRIVALS_PER_DAY = 18
+BASE_ARRIVALS_PER_DAY = 16
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
@@ -846,6 +848,15 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # ═══════════════════════════════════════════════════════════════════════════
     sala_CC = simpy.Container(model.env, capacity=5, init=5)
 
+    # WIP log: each entry is (absolute_time, rooms_occupied).
+    # Populated exclusively by SalaCC_Seize (on get) and SalaCC_Release
+    # (on put), so it always reflects the true number of patients inside
+    # the OR -- bounded by sala_CC.capacity (5).
+    # plot_wip_over_time() must NOT be used for this metric: it counts all
+    # entities from creation to disposal (pre-OR queue + OR + post-OR
+    # discharge) and therefore routinely exceeds 5.
+    model.wip_cc_log = []   # list[tuple[float, int]]
+
     # ── Custom gateway blocks ──────────────────────────────────────────────────
     # These two thin classes are the ONLY place Sala_CC logic lives.
     # They do not interact with model.add_resource — they operate on the raw
@@ -887,6 +898,11 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             
             # 1. BLOCKS the process pipeline here until a room slot becomes free
             yield self._sala_cc.get(1)
+
+            # Record OR WIP: rooms now occupied (1..5).
+            # This is the ONLY correct place to measure surgical-centre WIP;
+            # it counts patients physically inside the OR, not in queue or recovery.
+            model.wip_cc_log.append((self.env.now, sala_CC.capacity - sala_CC.level))
 
             # print(
             #     f"[{self.env.now:.2f}] "
@@ -935,6 +951,9 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             
             # 1. RETURN the operating room slot back to the pool
             yield self._sala_cc.put(1)
+
+            # Record OR WIP after release: level went up by 1, occupied went down by 1.
+            model.wip_cc_log.append((self.env.now, sala_CC.capacity - sala_CC.level))
 
             # print(
             #     f"[{self.env.now:.2f}] "
@@ -2158,6 +2177,37 @@ def main():
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
     plotter.plot_wip_over_time()
+
+    def plot_cc_wip(model):
+        if not model.wip_cc_log:
+            return
+
+        times = [t for t, _ in model.wip_cc_log]
+        wip   = [v for _, v in model.wip_cc_log]
+
+        plt.figure(figsize=(12,6))
+        plt.step(
+            times,
+            wip,
+            where="post",
+            linewidth=1.5,
+            label="CC WIP"
+        )
+        plt.axhline(
+            y=5,
+            linestyle="--",
+            label="CC Capacity"
+        )
+        plt.ylim(0, 5.5)
+        plt.xlabel("Simulation Time")
+        plt.ylabel("Patients inside CC")
+        plt.title("Centro Cirúrgico WIP")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+    # plot_cc_wip(model) 
+
     plotter.plot_system_time_distribution()
     
     
