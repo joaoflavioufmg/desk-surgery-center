@@ -60,15 +60,15 @@ BASE_ARRIVALS_PER_DAY = 16
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
-    "Enfermeiro": 3, 
+    "Enfermeiro": 1, 
     "Farmacia": 2, 
-    "Tec_Enfermagem": 11, 
+    "Tec_Enfermagem": 6, #  5 nas salas + 1 corredor + sala onda + 3 SRPA Tem um ferista cobrindo alguem 
     "Eq_Assistencial_CTI": 1,
-    "Eq_Medica": 6, 
-    "Anestesista": 6, 
+    "Eq_Medica": 5,  # + 1 equipe sala da onda
+    "Anestesista": 5,  # + 1 anestesista sala da onda
     "Tec_Radiologia": 2, 
-    "Eq_Radiologia": 4,
-    "Func_CME": 2, 
+    "Eq_Radiologia": 2, # Tem 4, mas usa 2 no máximo simultaneamente
+    "Func_CME": 1,  
     "Eq_Higienizacao": 2
 }
 
@@ -107,16 +107,16 @@ DEFAULT_CAPACITIES = {
 # ================================================================
 BACKGROUND_WORKLOAD = {
     #                      task_mean  gap_mean   ≈ bg_util
-    "Enfermeiro":        {"task": 15, "gap": 30},   # ≈ 85%
-    "Farmacia":          {"task": 15, "gap": 45},   # ≈ 83%
+    "Enfermeiro":        {"task": 45, "gap": 10},   # ≈ 85%
+    "Farmacia":          {"task": 35, "gap": 15},   # ≈ 83%
     "Tec_Enfermagem":    {"task": 15, "gap": 15},   # ≈ 81%
-    "Eq_Assistencial_CTI":{"task":50, "gap": 55},  # ≈ 81%
+    "Eq_Assistencial_CTI":{"task":50, "gap": 35},   # ≈ 81%
     "Eq_Medica":         {"task": 15, "gap": 35},   # ≈ 89%
-    "Anestesista":       {"task": 15, "gap": 20},   # ≈ 86%
-    "Tec_Radiologia":    {"task": 30, "gap": 65},   # ≈ 86%
-    "Eq_Radiologia":     {"task": 30, "gap": 65},   # ≈ 86%
-    "Func_CME":          {"task": 35, "gap": 45},   # ≈ 85%
-    "Eq_Higienizacao":   {"task": 30, "gap": 35},   # ≈ 80%
+    "Anestesista":       {"task": 15, "gap": 10},   # ≈ 86%
+    "Tec_Radiologia":    {"task": 50, "gap": 35},   # ≈ 86%
+    "Eq_Radiologia":     {"task": 50, "gap": 35},   # ≈ 86%
+    "Func_CME":          {"task": 35, "gap": 25},   # ≈ 85%
+    "Eq_Higienizacao":   {"task": 30, "gap": 25},   # ≈ 80%
 }
 
 # ----------------------------------------------------------------
@@ -205,28 +205,45 @@ ENABLE_BACKGROUND_WORKLOAD = True
 # ---------------------------------------------------------------
 RESOURCE_SCHEDULE = {
     "Eq_Medica": [
-        ( 0,  2, 4),
-        ( 2,  4, 4),   # quiet night - reduced staff
-        ( 4,  6, 4),
-        ( 6,  8, 6),
-        ( 8, 10, 6),
-        (10, 12, 6),   # peak - full team
-        (12, 14, 6),
-        (14, 16, 6),
-        (16, 18, 6),
-        (18, 20, 4),
-        (20, 22, 4),
-        (22, 24, 4),
+        ( 0,  7, 3), # A confirmar
+        ( 7, 19, 5), # Inicio do dio (eletivas + urgencias)        
+        (19, 24, 3),        
+    ],
+    "Anestesista": [
+        ( 0,  7, 3), # A confirmar
+        ( 7, 19, 5), # Inicio do dio (eletivas + urgencias)        
+        (19, 24, 3),        
     ],
     "Enfermeiro": [
-        ( 0,  6, 1),
-        ( 6, 18, 2),
-        (18, 24, 2),
+        (0,   7, 1),
+        (7,  13, 1), # Inicio do dio
+        (13, 19, 2),
+        (19, 24, 1),
+    ],
+    "Farmacia": [
+        (0,   6, 2),
+        (6,  18, 2), # Dio todo        
+        (18, 24, 2), # Troca a equipe mas mantem a quantidade até 7AM
     ],
     "Tec_Enfermagem": [
-        ( 0,  6, 10),
-        ( 6, 18, 11),
-        (18, 24, 11),
+        ( 0,  7,  7), # Ao todo sao 7, mas sao demandados 3 ou 4        
+        ( 7, 19, 10), # Inicio do dio
+        (19, 24,  7),        
+    ],
+    "Tec_Radiologia": [
+        (0,   7, 1),
+        (7,  19, 2), # Dio todo        
+        (19, 24, 1), # Troca a equipe mas mantem a quantidade até 7AM
+    ],
+    "Eq_Radiologia":[
+        (0,   7, 1),
+        (7,  19, 2), # Dio todo        
+        (19, 24, 1), # Troca a equipe mas mantem a quantidade até 7AM
+    ],
+    "Eq_Higienizacao":[
+        (0,   7, 1),
+        (7,  19, 2), # Dio todo        
+        (19, 24, 1), # Troca a equipe mas mantem a quantidade até 7AM
     ],
     # add other resources as needed ...
 }
@@ -637,15 +654,15 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     
     
 
-    Enfermeiro = model.add_resource("Enfermeiro", 3, "regular") 
+    Enfermeiro = model.add_resource("Enfermeiro", 1, "regular") 
     Farmacia = model.add_resource("Farmacia", 2, "regular") 
-    Tec_Enfermagem = model.add_resource("Tec_Enfermagem", 11, "regular") 
+    Tec_Enfermagem = model.add_resource("Tec_Enfermagem", 6, "regular") 
     Eq_Assistencial_CTI = model.add_resource("Eq_Assistencial_CTI", 1, "regular") 
-    Eq_Medica = model.add_resource("Eq_Medica", 6, "regular")     
-    Anestesista = model.add_resource("Anestesista", 6, "regular")    
+    Eq_Medica = model.add_resource("Eq_Medica", 5, "regular")     
+    Anestesista = model.add_resource("Anestesista", 5, "regular")    
     Tec_Radiologia = model.add_resource("Tec_Radiologia", 2, "regular") 
-    Eq_Radiologia = model.add_resource("Eq_Radiologia", 4, "regular") 
-    Func_CME = model.add_resource("Func_CME", 2, "regular") 
+    Eq_Radiologia = model.add_resource("Eq_Radiologia", 2, "regular") 
+    Func_CME = model.add_resource("Func_CME", 1, "regular") 
     Eq_Higienizacao = model.add_resource("Eq_Higienizacao", 2, "regular")
     # Tec_Enfermagem_X = model.add_resource("Tec_Enfermagem_X", 1, "regular")  
     
@@ -1125,16 +1142,16 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
         # DAY SHIFT - elective/planned surgeries dominate
         # -------------------------------------------------
         if 7 <= current_hour < 19:
-            if u < 0.15:    return "Pequena"
-            elif u < 0.75:  return "Media"
+            if u < 0.30:    return "Pequena"
+            elif u < 0.62:  return "Media"
             else:           return "Grande"
         # -------------------------------------------------
         # NIGHT SHIFT - emergency/fast procedures dominate
         # -------------------------------------------------
         else:
-            if u < 0.92:    return "Pequena"
-            elif u < 0.99:  return "Media"
-            else:           return "Grande"
+            if u < 0.20:    return "Pequena"
+            elif u < 0.40:  return "Media"
+            else:           return "Grande" # 60% das cirurgias sao de 2h (grande-porte)
 
 
     # def inject_surgery_size(entity):
@@ -1251,15 +1268,26 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     )
     adm_paciente_P1617.set_resource_name('Tec_Enfermagem')
 
-    # ProcessBlock block: Process with ONE resource
-    proc_cirurgico_P18 = ProcessBlock(
+    # ProcessBlock block: Process with ONE resource    
+    # proc_cirurgico_P18 = ProcessBlock(
+    proc_cirurgico_P18 = MultiProcessBlock(
         "Check_Cir_Seg", model.env,
-        resource=Eq_Medica,        
+        # resource=Eq_Medica,        
+        resource_requirements={                        
+            Eq_Medica: 1,            
+            Tec_Enfermagem: 1,
+            Anestesista: 1
+        },
         delay_time=lambda: distribution('3_checklist_pre_cir'),
-        resource_units=1,                 
+        # resource_units=1,                 
         event_logger=event_logger
     )
-    proc_cirurgico_P18.set_resource_name('Eq_Medica')    
+    # proc_cirurgico_P18.set_resource_name('Eq_Medica')    
+    proc_cirurgico_P18.set_resource_names({                
+        Eq_Medica: 'Eq_Medica',        
+        Tec_Enfermagem: 'Tec_Enfermagem',
+        Anestesista: 'Anestesista'
+    })  
 
     # ProcessBlock block: Process with ONE resource
     proc_cirurgico_P19 = ProcessBlock(
@@ -1489,12 +1517,13 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
 
     # MultiProcessBlock block: Process with MULTIPLE resources
+    # Conferência e registro
     proc_cirurgico_pos_P23aP30 = MultiProcessBlock(
         "Conf_Registros", model.env,        
         resource_requirements={            
             Anestesista: 1,
             Eq_Medica: 1,
-            #Tec_Radiologia: 1,            
+            Tec_Radiologia: 1,            
             Tec_Enfermagem: 1
         },        
         delay_time=lambda: distribution('3_conf_registros_pos_cir'),        
@@ -1503,7 +1532,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     proc_cirurgico_pos_P23aP30.set_resource_names({        
         Anestesista: 'Anestesista',
         Eq_Medica: 'Eq_Medica',
-        #Tec_Radiologia: 'Tec_Radiologia',        
+        Tec_Radiologia: 'Tec_Radiologia',        
         Tec_Enfermagem: 'Tec_Enfermagem'
     })
     
@@ -1518,14 +1547,23 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     limpeza_organizacao_P37.set_resource_name('Tec_Enfermagem') 
 
     # ProcessBlock block: Process with ONE resource
-    limpeza_organizacao_P38 = ProcessBlock(
+    # limpeza_organizacao_P38 = ProcessBlock(
+    limpeza_organizacao_P38 = MultiProcessBlock(
         "Sep_MatSujo", model.env,
-        resource=Func_CME,        
+        # resource=Func_CME,        
+        resource_requirements={                        
+            Func_CME: 1,            
+            Tec_Enfermagem: 1
+        },
         delay_time=lambda: distribution('5_sep_mat_sujos'),
-        resource_units=1,                 
+        # resource_units=1,                 
         event_logger=event_logger
     )
-    limpeza_organizacao_P38.set_resource_name('Func_CME')
+    # limpeza_organizacao_P38.set_resource_name('Func_CME')
+    limpeza_organizacao_P38.set_resource_names({                
+        Func_CME: 'Func_CME',        
+        Tec_Enfermagem: 'Tec_Enfermagem'
+    })
 
     # ProcessBlock block: Process with ONE resource
     limpeza_organizacao_P39 = ProcessBlock(
@@ -1647,8 +1685,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     prep_sala_P2.connect_to(prep_sala_P3a9)
     prep_sala_P3a9.connect_to(origem_paciente_decision)
 
-    origem_paciente_decision.add_route("Pac_CTI", adm_conf_paciente_P11a, probability=0.071)
-    origem_paciente_decision.add_route("Pac_Outros", adm_conf_paciente_P11b, probability=0.929)
+    origem_paciente_decision.add_route("Pac_CTI", adm_conf_paciente_P11a, probability=0.136) # 13.6 %
+    origem_paciente_decision.add_route("Pac_Outros", adm_conf_paciente_P11b, probability=0.864)
 
     adm_conf_paciente_P11a.connect_to(adm_conf_paciente_P12a15)    
     adm_conf_paciente_P11b.connect_to(adm_conf_paciente_P12a15)            
@@ -1681,8 +1719,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # ====================
     proc_cirurgico_P_P20_025.connect_to(faz_ex_radio_cir_p_decision)
 
-    faz_ex_radio_cir_p_decision.add_route("Cir_P_Sem_Radio", proc_cirurgico_P_P20aP22_015, probability=0.95)
-    faz_ex_radio_cir_p_decision.add_route("Cir_P_Com_Radio", proc_cirurgico_P_P20aP22_015_Radio, probability=0.05)
+    faz_ex_radio_cir_p_decision.add_route("Cir_P_Sem_Radio", proc_cirurgico_P_P20aP22_015, probability=0.60)
+    faz_ex_radio_cir_p_decision.add_route("Cir_P_Com_Radio", proc_cirurgico_P_P20aP22_015_Radio, probability=0.40)
 
     proc_cirurgico_P_P20aP22_015.connect_to(proc_cirurgico_P_P20_060)
     proc_cirurgico_P_P20aP22_015_Radio.connect_to(proc_cirurgico_P_P20_060)
@@ -1690,8 +1728,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # ====================
     proc_cirurgico_M_P20_025.connect_to(faz_ex_radio_cir_m_decision)
 
-    faz_ex_radio_cir_m_decision.add_route("Cir_M_Sem_Radio", proc_cirurgico_M_P20aP22_015, probability=0.80)
-    faz_ex_radio_cir_m_decision.add_route("Cir_M_Com_Radio", proc_cirurgico_M_P20aP22_015_Radio, probability=0.20)
+    faz_ex_radio_cir_m_decision.add_route("Cir_M_Sem_Radio", proc_cirurgico_M_P20aP22_015, probability=0.60)
+    faz_ex_radio_cir_m_decision.add_route("Cir_M_Com_Radio", proc_cirurgico_M_P20aP22_015_Radio, probability=0.40)
 
     proc_cirurgico_M_P20aP22_015.connect_to(proc_cirurgico_M_P20_060)
     proc_cirurgico_M_P20aP22_015_Radio.connect_to(proc_cirurgico_M_P20_060)
