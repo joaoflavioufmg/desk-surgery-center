@@ -107,17 +107,37 @@ DEFAULT_CAPACITIES = {
 # ================================================================
 BACKGROUND_WORKLOAD = {
     #                      task_mean  gap_mean   ≈ bg_util
-    "Enfermeiro":        {"task": 45, "gap": 10},   # ≈ 85%
-    "Farmacia":          {"task": 35, "gap": 15},   # ≈ 83%
-    "Tec_Enfermagem":    {"task": 15, "gap": 15},   # ≈ 81%
-    "Eq_Assistencial_CTI":{"task":50, "gap": 35},   # ≈ 81%
-    "Eq_Medica":         {"task": 15, "gap": 35},   # ≈ 89%
-    "Anestesista":       {"task": 15, "gap": 10},   # ≈ 86%
-    "Tec_Radiologia":    {"task": 50, "gap": 35},   # ≈ 86%
-    "Eq_Radiologia":     {"task": 50, "gap": 35},   # ≈ 86%
-    "Func_CME":          {"task": 35, "gap": 25},   # ≈ 85%
-    "Eq_Higienizacao":   {"task": 30, "gap": 25},   # ≈ 80%
+    # Enfermeiro: Transporte de pacientes, monitoramento na SRPA, preparação de salas, 
+    # organização de materiais, programação cirúrgica, coordenação de equipes, 
+    # gestão de faltas de materiais, comunicação com enfermarias e tratamento de incidentes.
+    "Enfermeiro":        {"task": 55, "gap": 10},   
+    # Farmacia: Além dos medicamentos cirúrgicos: dispensação de medicamentos, 
+    # controle de estoque, gestão de medicamentos controlados, reposição de estoques em 
+    # outros setores e processamento de devoluções.
+    "Farmacia":          {"task": 35, "gap": 15},   
+    # Tec_Enfermagem: Auxilia SRPA o tempo todo
+    "Tec_Enfermagem":    {"task": 15, "gap": 10},   
+    # Eq_Assistencial_CTI: Atividades no CTI
+    "Eq_Assistencial_CTI":{"task":50, "gap": 35},   
+    # Eq_Medica: Além da cirurgia: registro em prontuário, descrição cirúrgica, 
+    # prescrição médica, evolução clínica, codificação no SISREG/SIH/SUS 
+    # e comunicação com familiares.
+    "Eq_Medica":         {"task": 25, "gap": 35},  
+    # Anestesista: Atividades adicionais: avaliação pré-anestésica, 
+    # visitas à sala de recuperação pós-anestésica (SRPA), preenchimento de 
+    # documentação e reconciliação medicamentosa. 
+    "Anestesista":       {"task": 25, "gap": 15},   
+    # Tec_Radiologia: Se cirurgia ortopedica, 70% de uso
+    "Tec_Radiologia":    {"task": 50, "gap": 25},   
+    "Eq_Radiologia":     {"task": 50, "gap": 25},   
+    # Func_CME: Recebimento de instrumentais contaminados: lavagem, montagem/preparo 
+    # de caixas cirúrgicas, esterilização e armazenamento.
+    "Func_CME":          {"task": 35, "gap": 5},   
+    # Além da limpeza entre cirurgias, a equipe de higienização realiza: limpeza terminal, 
+    # limpeza de corredores e áreas comuns, coleta e descarte de resíduos e limpezas emergenciais.
+    "Eq_Higienizacao":   {"task": 30, "gap": 35},   
 }
+
 
 # ----------------------------------------------------------------
 # BACKGROUND WORKLOAD SCHEDULE
@@ -251,38 +271,6 @@ RESOURCE_SCHEDULE = {
 # ---------------------------------------------------------------
 # Generic time-dependent arrival
 # ---------------------------------------------------------------
-# ================================================================
-# VERY STRONG Daytime Arrival Profile (aligned with real data)
-# ================================================================
-# ARRIVAL_SLOTS = [
-#     ( 0,  2, 0.012),   # Night - very low
-#     ( 2,  4, 0.005),
-#     ( 4,  6, 0.010),
-#     ( 6,  8, 0.210),   # ← Big morning ramp-up
-#     ( 8, 10, 0.155),
-#     (10, 12, 0.175),   # Peak
-#     (12, 14, 0.135),
-#     (14, 16, 0.140),
-#     (16, 18, 0.098),
-#     (18, 20, 0.035),   # Sharp drop
-#     (20, 22, 0.015),
-#     (22, 24, 0.010),
-# ]
-
-# ARRIVAL_SLOTS = [
-#     ( 0,  2, 0.018),   # 00–02h:  1.8%  ← reduced
-#     ( 2,  4, 0.006),   # 02–04h:  0.6%
-#     ( 4,  6, 0.008),   # 04–06h:  0.8%
-#     ( 6,  8, 0.195),   # 06–08h: 19.5%  ← increased
-#     ( 8, 10, 0.135),   # 08–10h: 13.5%
-#     (10, 12, 0.162),   # 10–12h: 16.2%
-#     (12, 14, 0.118),   # 12–14h: 11.8%
-#     (14, 16, 0.132),   # 14–16h: 13.2%
-#     (16, 18, 0.115),   # 16–18h: 11.5%
-#     (18, 20, 0.045),   # 18–20h:  4.5%  ← reduced
-#     (20, 22, 0.038),   # 20–22h:  3.8%
-#     (22, 24, 0.028),   # 22–00h:  2.8%
-# ]
 
 
 # ---------------------------------------------------------------
@@ -420,7 +408,7 @@ def make_nhpp_interarrival(
        mean so that ``wf = historical_mean_d / global_mean`` gives:
            E[arrivals on day d] = BASE × wf[d] = historical_mean_d  ✓
 
-    CORRECT ALGORITHM — Piecewise Inversion Method
+    ALGORITHM — Piecewise Inversion Method
     ────────────────────────────────────────────────
     1. Draw E ~ Exponential(1): one "unit of expected arrivals to consume".
     2. Starting at the current simulation time t, walk forward slot by slot.
@@ -1718,7 +1706,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     # ====================
     proc_cirurgico_P_P20_025.connect_to(faz_ex_radio_cir_p_decision)
-
+    # For orthopedic/vascular surgery: 40%−70%
+    #  For general surgery: 10%−30%
     faz_ex_radio_cir_p_decision.add_route("Cir_P_Sem_Radio", proc_cirurgico_P_P20aP22_015, probability=0.60)
     faz_ex_radio_cir_p_decision.add_route("Cir_P_Com_Radio", proc_cirurgico_P_P20aP22_015_Radio, probability=0.40)
 
@@ -2204,17 +2193,17 @@ def main():
     plotter = SimulationPlotter(model)
     
     # # Plot resource utilization over time    
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Enfermeiro', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Farmacia', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Enfermagem', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Assistencial_CTI', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Medica', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Anestesista', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Radiologia', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Func_CME', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
-    plotter.plot_wip_over_time()
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Enfermeiro', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Farmacia', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Enfermagem', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Assistencial_CTI', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Medica', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Anestesista', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Radiologia', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Func_CME', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)
+    # # plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
+    # plotter.plot_wip_over_time()
 
     def plot_cc_wip(model):
         if not model.wip_cc_log:
