@@ -2193,17 +2193,17 @@ def main():
     plotter = SimulationPlotter(model)
     
     # # Plot resource utilization over time    
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Enfermeiro', moving_average_window=50)
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Farmacia', moving_average_window=50)
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Enfermagem', moving_average_window=50)
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Assistencial_CTI', moving_average_window=50)
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Medica', moving_average_window=50)
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Anestesista', moving_average_window=50)
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Radiologia', moving_average_window=50)
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Func_CME', moving_average_window=50)
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)
-    # # plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
-    # plotter.plot_wip_over_time()
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Enfermeiro', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Farmacia', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Enfermagem', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Assistencial_CTI', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Medica', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Anestesista', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Radiologia', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Func_CME', moving_average_window=50)
+    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
+    plotter.plot_wip_over_time()
 
     def plot_cc_wip(model):
         if not model.wip_cc_log:
