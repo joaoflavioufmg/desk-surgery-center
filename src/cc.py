@@ -544,7 +544,6 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
                 
 
 
-
     # Unidade básica para todos os tempos: minutos
     def distribution(tipo):
         # Arrival rates (per day - per minute if DAYS = 1440)
@@ -564,10 +563,12 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             '1_montagem_kits': 5,
 
             # 1. Rec kit, Sep. Instrumentos, Check list, Org., Registro Info (P:3,4,5,8,9)
-            '1_organiza_sala_e_kits': random.triangular(20, 25, 30),
+            # '1_organiza_sala_e_kits': random.triangular(20, 25, 30),
+            '1_organiza_sala_e_kits': random.triangular(8, 10, 15),
 
             # 2. Transporte do paciente do CTI ao Centro Cirúrgico (P:11)
-            '2_transporte_CTI_CC': random.triangular(20, 80, 150),
+            # '2_transporte_CTI_CC': random.triangular(20, 80, 150),
+            '2_transporte_CTI_CC': random.triangular(20, 40, 60),
 
             # 2. Transporte do paciente de sua origem ao Centro Cirúrgico (P:11)
             '2_transporte_origem_CC': random.triangular(10, 15, 20),
@@ -576,15 +577,18 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             #####################CONFERIR#######################            
             # 2_adm_conf.txt filtrado (retirada outliers: > 5 min, < 75 min)
             # '2_adm_e_conf_paciente': random.triangular(15, 25, 30),
-            '2_adm_e_conf_paciente': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            # '2_adm_e_conf_paciente': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            '2_adm_e_conf_paciente': 1/3 * (4.9 + 100 * random.betavariate(1.18591, 616.092)),
 
             # 2. Admissão do Paciente (P:16,17)
             # '2_adm_paciente': random.triangular(10, 15, 20),
-            '2_adm_paciente': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            # '2_adm_paciente': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            '2_adm_paciente': 1/3 * (4.9 + 100 * random.betavariate(1.18591, 616.092)),
 
             # 2. Checklist de Cirurgia Segura Físico (P:18)
             # '3_checklist_pre_cir': 5,
-            '3_checklist_pre_cir': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            # '3_checklist_pre_cir': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            '3_checklist_pre_cir': 1/3 * (4.9 + 100 * random.betavariate(1.18591, 616.092)),
 
             # 3. Ato Anestésico (P:19)
 
@@ -1754,110 +1758,110 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # ================================================================    
     # Assign costs to each activity
     arrivals_cc.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(0, 1)  # costs $0
     )
-    # Assign costs to each activity
+    # Assign costs to each activity: Aviso_Cir
     prep_sala_P16.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 200)  # costs $175
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Monta_Kits
     prep_sala_P2.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 200)  # costs $175
     )    
-     # Assign costs to each activity
+     # Assign costs to each activity: Org_Sala_Kits
     prep_sala_P3a9.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(300, 360)  # costs $351
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Transp_CTI_CC
     adm_conf_paciente_P11a.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(0, 1)  # costs $0
     ) 
      # Assign costs to each activity
     adm_conf_paciente_P11b.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(0, 1)  # costs $0
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Adm_Conf_Pac
     adm_conf_paciente_P12a15.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 200)  # costs $175
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Adm_Paciente
     adm_paciente_P1617.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(300, 350)  # costs $350
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Check_Cir_Seg
     proc_cirurgico_P18.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 200)  # costs $175
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Ato_Anest
     proc_cirurgico_P19.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(900, 1000)  # costs $1054
     ) 
     # =======================
-    # Assign costs to each activity
+    # Assign costs to each activity: Cir_Pequena_025
     proc_cirurgico_P_P20_025.assign_attributes(
-        cost=lambda: random.uniform(50, 100)  # Surgery costs $100-200
+        cost=lambda: 0.25*random.uniform(3600, 4400)  # Surgery costs $4218
     )
-    # Assign costs to each activity
+    # Assign costs to each activity: Cir_Pequena_015
     proc_cirurgico_P_P20aP22_015.assign_attributes(
-        cost=lambda: random.uniform(100, 200)  # Surgery costs $100-200
+        cost=lambda: 0.15*random.uniform(3600, 4400)  # Surgery costs $4218
     )
-    # Assign costs to each activity
+    # Assign costs to each activity: Radiologia
     proc_cirurgico_P_P20aP22_015_Radio.assign_attributes(
-        cost=lambda: random.uniform(110, 210)  # Surgery costs $100-200
+        cost=lambda: random.uniform(0, 1)  # Surgery costs $1054 (em paralelo)
     )
-    # Assign costs to each activity
+    # Assign costs to each activity Cir_Pequena_060
     proc_cirurgico_P_P20_060.assign_attributes(
-        cost=lambda: random.uniform(80, 110)  # Surgery costs $100-200
+        cost=lambda: 0.60*random.uniform(3600, 4400)  # Surgery costs $4218
     )
     # =======================
     # =======================
     # Assign costs to each activity
     proc_cirurgico_M_P20_025.assign_attributes(
-        cost=lambda: random.uniform(50, 100)  # Surgery costs $100-200
+        cost=lambda: 0.25*random.uniform(3600, 4400)  # Surgery costs $4218
     )
     # Assign costs to each activity
     proc_cirurgico_M_P20aP22_015.assign_attributes(
-        cost=lambda: random.uniform(100, 200)  # Surgery costs $100-200
+        cost=lambda: 0.15*random.uniform(3600, 4400)  # Surgery costs $4218
     )
     # Assign costs to each activity
     proc_cirurgico_M_P20aP22_015_Radio.assign_attributes(
-        cost=lambda: random.uniform(110, 210)  # Surgery costs $100-200
+        cost=lambda: random.uniform(0, 1)  # Surgery costs $100-200
     )
     # Assign costs to each activity
     proc_cirurgico_M_P20_060.assign_attributes(
-        cost=lambda: random.uniform(80, 110)  # Surgery costs $100-200
+        cost=lambda: 0.60*random.uniform(3600, 4400)  # Surgery costs $4218
     )
     # =======================
     # =======================
     # Assign costs to each activity
     proc_cirurgico_G_P20_025.assign_attributes(
-        cost=lambda: random.uniform(50, 100)  # Surgery costs $100-200
+        cost=lambda: 0.25*random.uniform(3600, 4400)  # Surgery costs $4218
     )
     # Assign costs to each activity
     proc_cirurgico_G_P20aP22_015.assign_attributes(
-        cost=lambda: random.uniform(100, 200)  # Surgery costs $100-200
+        cost=lambda: 0.15*random.uniform(3600, 4400)  # Surgery costs $4218
     )
     # Assign costs to each activity
     proc_cirurgico_G_P20aP22_015_Radio.assign_attributes(
-        cost=lambda: random.uniform(110, 210)  # Surgery costs $100-200
+        cost=lambda: random.uniform(0, 1)  # Surgery costs $100-200
     )
     # Assign costs to each activity
     proc_cirurgico_G_P20_060.assign_attributes(
-        cost=lambda: random.uniform(80, 110)  # Surgery costs $100-200
+        cost=lambda: 0.60*random.uniform(3600, 4400)  # Surgery costs $4218
     )
     # =======================
 
-    # Assign costs to each activity
+    # Assign costs to each activity: Remov_Residuos
     limpeza_organizacao_P37.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 200)  # costs $175
     ) 
-    # Assign costs to each activity
+    # Assign costs to each activity: Sep_MatSujo
     limpeza_organizacao_P38.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 200)  # costs $175
     ) 
-    # Assign costs to each activity
+    # Assign costs to each activity: limpeza_organizacao
     limpeza_organizacao_P39.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(450, 550)  # costs $527
     ) 
     # Assign costs to each activity
     #proc_materiais_P40aP44.assign_attributes(
@@ -1867,7 +1871,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # Assign revenue at discharge (based on patient complexity)
     def calculate_revenue():
         """Revenue varies by patient complexity"""
-        return random.uniform(400, 500)
+        return random.uniform(1400, 1600) # Revenue: $ 1514
     
     discharge_srpa.assign_attributes(revenue=calculate_revenue)                
     # ================================================================
