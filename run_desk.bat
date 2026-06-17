@@ -5,9 +5,11 @@ echo =========================================================
 
 echo [1/3] Executando o Modelo de Simulacao (cc.py)...
 @REM desk-sim -m src/cc.py --mode visualization
-desk-sim -m src/cc.py --mode single
+@REM desk-sim -m src/cc.py --mode single
+@REM CC-1: Aumento de 20% da demanda. De 16 -> 19 por dia
 @REM desk-sim -m src/cc-1.py --mode single           
-@REM desk-sim -m src/cc-2.py --mode single
+@REM CC-2: Novo redesenho de escalas e turnos
+desk-sim -m src/cc-2.py --mode single
 @REM desk-sim -m src/cc-3.py --mode single
 @REM desk-sim -m src/cc-4.py --mode single
 @REM desk-sim -m src/cc.py --mode replications

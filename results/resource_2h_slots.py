@@ -15,8 +15,9 @@ warnings.filterwarnings("ignore")
 
 INPUT_FILE  = "cc_event_log.csv"
 OUTPUT_HTML = "resource_2h_utilization.html"
-BASE_DATETIME = pd.Timestamp("2025-01-01 03:00:00")
-SIM_DURATION = 55_000
+# BASE_DATETIME = pd.Timestamp("2025-01-01 03:00:00")
+BASE_DATETIME = pd.Timestamp("2025-01-01 00:00:00")
+SIM_DURATION = 44_640
 # SIM_DURATION    = 525_600                  
 
 
@@ -24,16 +25,29 @@ SIM_DURATION = 55_000
 # ESCOPO GLOBAL
 # ================================================================
 # Capacidades Padrão (Default)
+# DEFAULT_CAPACITIES = {
+#     "Enfermeiro": 3, 
+#     "Farmacia": 2, 
+#     "Tec_Enfermagem": 11, 
+#     "Eq_Assistencial_CTI": 1,
+#     "Eq_Medica": 6, 
+#     "Anestesista": 6, 
+#     "Tec_Radiologia": 2, 
+#     "Eq_Radiologia": 4,
+#     "Func_CME": 2, 
+#     "Eq_Higienizacao": 2
+# }
+
 DEFAULT_CAPACITIES = {
-    "Enfermeiro": 3, 
+    "Enfermeiro": 1, 
     "Farmacia": 2, 
-    "Tec_Enfermagem": 11, 
+    "Tec_Enfermagem": 6, #  5 nas salas + 1 corredor + sala onda + 3 SRPA Tem um ferista cobrindo alguem 
     "Eq_Assistencial_CTI": 1,
-    "Eq_Medica": 6, 
-    "Anestesista": 6, 
+    "Eq_Medica": 5,  # + 1 equipe sala da onda
+    "Anestesista": 5,  # + 1 anestesista sala da onda
     "Tec_Radiologia": 2, 
-    "Eq_Radiologia": 4,
-    "Func_CME": 2, 
+    "Eq_Radiologia": 2, # Tem 4, mas usa 2 no máximo simultaneamente
+    "Func_CME": 1,  
     "Eq_Higienizacao": 2
 }
 
@@ -44,32 +58,48 @@ DEFAULT_CAPACITIES = {
 # ---------------------------------------------------------------
 RESOURCE_SCHEDULE = {
     "Eq_Medica": [
-        ( 0,  2, 6),
-        ( 2,  4, 6),   # quiet night → reduced staff
-        ( 4,  6, 6),
-        ( 6,  8, 6),
-        ( 8, 10, 6),
-        (10, 12, 6),   # peak → full team
-        (12, 14, 6),
-        (14, 16, 6),
-        (16, 18, 6),
-        (18, 20, 6),
-        (20, 22, 6),
-        (22, 24, 6),
+        ( 0,  7, 3), # A confirmar
+        ( 7, 19, 5), # Inicio do dio (eletivas + urgencias)        
+        (19, 24, 3),        
+    ],
+    "Anestesista": [
+        ( 0,  7, 3), # A confirmar
+        ( 7, 19, 5), # Inicio do dio (eletivas + urgencias)        
+        (19, 24, 3),        
     ],
     "Enfermeiro": [
-        ( 0,  6, 1),
-        ( 6, 18, 2),
-        (18, 24, 2),
+        (0,   7, 1),
+        (7,  13, 1), # Inicio do dio
+        (13, 19, 2),
+        (19, 24, 1),
+    ],
+    "Farmacia": [
+        (0,   6, 2),
+        (6,  18, 2), # Dio todo        
+        (18, 24, 2), # Troca a equipe mas mantem a quantidade até 7AM
     ],
     "Tec_Enfermagem": [
-        ( 0,  6, 10),
-        ( 6, 18, 11),
-        (18, 24, 11),
+        ( 0,  7,  7), # Ao todo sao 7, mas sao demandados 3 ou 4        
+        ( 7, 19, 10), # Inicio do dio
+        (19, 24,  7),        
+    ],
+    "Tec_Radiologia": [
+        (0,   7, 1),
+        (7,  19, 2), # Dio todo        
+        (19, 24, 1), # Troca a equipe mas mantem a quantidade até 7AM
+    ],
+    "Eq_Radiologia":[
+        (0,   7, 1),
+        (7,  19, 2), # Dio todo        
+        (19, 24, 1), # Troca a equipe mas mantem a quantidade até 7AM
+    ],
+    "Eq_Higienizacao":[
+        (0,   7, 1),
+        (7,  19, 2), # Dio todo        
+        (19, 24, 1), # Troca a equipe mas mantem a quantidade até 7AM
     ],
     # add other resources as needed ...
 }
-
 
 
 
@@ -79,9 +109,15 @@ df_raw["timestamp"] = pd.to_numeric(df_raw["timestamp"], errors="coerce")
 df_raw = df_raw[df_raw["timestamp"] <= SIM_DURATION].copy()
 df_raw["data_formatada"] = BASE_DATETIME + pd.to_timedelta(df_raw["timestamp"], unit="m")
 
+# --- REFACTOR HERE: REMOVE DUPLICATES ---
+# Ensure we only have one unique event per case/activity/lifecycle/timestamp
+df_raw = df_raw.drop_duplicates(subset=["case_id", "activity", "lifecycle", "timestamp", "resource"])
+# ----------------------------------------
+
 # Identificação e Exclusão de Cancelados
 cancelled_cases = set(df_raw[df_raw["activity"] == "CC_busy_Pac_Sai_CC"]["case_id"].unique())
 df = df_raw[~df_raw["case_id"].isin(cancelled_cases)].copy()
+
 
 # 1. Mapeamento de tempo de relógio
 timeline_hours = (BASE_DATETIME + pd.to_timedelta(np.arange(0, int(SIM_DURATION)), unit="m")).hour

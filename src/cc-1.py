@@ -6,6 +6,8 @@ import random
 import math
 import sys
 import simpy                          # ← required for the Sala_CC capacity gate
+import matplotlib.pyplot as plt
+import numpy as np  
 from desk.stats.factorial import FactorialExperiment
 from desk.stats.replication import ReplicationFramework    
 from desk.analytics.financial import FinancialAnalyzer
@@ -37,32 +39,38 @@ from desk.visualization.interface import run_visualization
 # Desk-sim: DIST-FIT Which is the best data distribution?
 # ================================================================
 # desk-distfit -d src/input_data/1_int_cheg.txt --max-sample 500
-# desk-distfit -d src/input_data/2_adm_conf.txt
-# desk-distfit -d src/input_data/3_ato_anestetico.txt
-# desk-distfit -d src/input_data/cir_p.txt
-# desk-distfit -d src/input_data/cir_m.txt
-# desk-distfit -d src/input_data/cir_g.txt
-# desk-distfit -d src/input_data/3_pos_cir.txt
+# desk-distfit -d src/input_data/2_adm_conf.txt --max-sample 500
+# desk-distfit -d src/input_data/3_ato_anestetico.txt --max-sample 500
+# desk-distfit -d src/input_data/cir_p.txt --max-sample 500
+# desk-distfit -d src/input_data/cir_m.txt --max-sample 500
+# desk-distfit -d src/input_data/cir_g.txt --max-sample 500
+# desk-distfit -d src/input_data/3_pos_cir.txt --max-sample 500
 
 
 
 # ================================================================
 # ESCOPO GLOBAL
 # ================================================================
-# Explicit daily arrival baseline
-BASE_ARRIVALS_PER_DAY = 16
+# Scenario-planning knob: change this value to explore different
+# demand levels (e.g. 14 = baseline, 18 = growth scenario, 30 = stress test).
+# WEEKDAY_FACTORS below express RELATIVE weights across days-of-week and
+# are intentionally independent of this number — weekends will always be
+# ~55–69 % of whatever daily volume you set here.
+
+# BASE_ARRIVALS_PER_DAY = 16    # Base
+BASE_ARRIVALS_PER_DAY = 19      # Cenario 20% aumento da demanda
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
-    "Enfermeiro": 3, 
+    "Enfermeiro": 1, 
     "Farmacia": 2, 
-    "Tec_Enfermagem": 11, 
+    "Tec_Enfermagem": 6, #  5 nas salas + 1 corredor + sala onda + 3 SRPA Tem um ferista cobrindo alguem 
     "Eq_Assistencial_CTI": 1,
-    "Eq_Medica": 6, 
-    "Anestesista": 6, 
+    "Eq_Medica": 5,  # + 1 equipe sala da onda
+    "Anestesista": 5,  # + 1 anestesista sala da onda
     "Tec_Radiologia": 2, 
-    "Eq_Radiologia": 4,
-    "Func_CME": 2, 
+    "Eq_Radiologia": 2, # Tem 4, mas usa 2 no máximo simultaneamente
+    "Func_CME": 1,  
     "Eq_Higienizacao": 2
 }
 
@@ -101,17 +109,37 @@ DEFAULT_CAPACITIES = {
 # ================================================================
 BACKGROUND_WORKLOAD = {
     #                      task_mean  gap_mean   ≈ bg_util
-    "Enfermeiro":        {"task": 15, "gap": 30},   # ≈ 85%
-    "Farmacia":          {"task": 15, "gap": 45},   # ≈ 83%
-    "Tec_Enfermagem":    {"task": 15, "gap": 15},   # ≈ 81%
-    "Eq_Assistencial_CTI":{"task":50, "gap": 55},  # ≈ 81%
-    "Eq_Medica":         {"task": 15, "gap": 35},   # ≈ 89%
-    "Anestesista":       {"task": 15, "gap": 20},   # ≈ 86%
-    "Tec_Radiologia":    {"task": 30, "gap": 65},   # ≈ 86%
-    "Eq_Radiologia":     {"task": 30, "gap": 65},   # ≈ 86%
-    "Func_CME":          {"task": 35, "gap": 45},   # ≈ 85%
-    "Eq_Higienizacao":   {"task": 30, "gap": 35},   # ≈ 80%
+    # Enfermeiro: Transporte de pacientes, monitoramento na SRPA, preparação de salas, 
+    # organização de materiais, programação cirúrgica, coordenação de equipes, 
+    # gestão de faltas de materiais, comunicação com enfermarias e tratamento de incidentes.
+    "Enfermeiro":        {"task": 10, "gap": 5},   
+    # Farmacia: Além dos medicamentos cirúrgicos: dispensação de medicamentos, 
+    # controle de estoque, gestão de medicamentos controlados, reposição de estoques em 
+    # outros setores e processamento de devoluções.
+    "Farmacia":          {"task": 35, "gap": 15},   
+    # Tec_Enfermagem: Auxilia SRPA o tempo todo
+    "Tec_Enfermagem":    {"task": 10, "gap": 5},   
+    # Eq_Assistencial_CTI: Atividades no CTI
+    "Eq_Assistencial_CTI":{"task":3, "gap": 2},   
+    # Eq_Medica: Além da cirurgia: registro em prontuário, descrição cirúrgica, 
+    # prescrição médica, evolução clínica, codificação no SISREG/SIH/SUS 
+    # e comunicação com familiares.
+    "Eq_Medica":         {"task": 25, "gap": 35},  
+    # Anestesista: Atividades adicionais: avaliação pré-anestésica, 
+    # visitas à sala de recuperação pós-anestésica (SRPA), preenchimento de 
+    # documentação e reconciliação medicamentosa. 
+    "Anestesista":       {"task": 25, "gap": 15},   
+    # Tec_Radiologia: Se cirurgia ortopedica, 70% de uso
+    "Tec_Radiologia":    {"task": 20, "gap": 15},   
+    "Eq_Radiologia":     {"task": 20, "gap": 15},   
+    # Func_CME: Recebimento de instrumentais contaminados: lavagem, montagem/preparo 
+    # de caixas cirúrgicas, esterilização e armazenamento.
+    "Func_CME":          {"task": 10, "gap": 5},   
+    # Além da limpeza entre cirurgias, a equipe de higienização realiza: limpeza terminal, 
+    # limpeza de corredores e áreas comuns, coleta e descarte de resíduos e limpezas emergenciais.
+    "Eq_Higienizacao":   {"task": 30, "gap": 20},   
 }
+
 
 # ----------------------------------------------------------------
 # BACKGROUND WORKLOAD SCHEDULE
@@ -191,6 +219,7 @@ BACKGROUND_SCHEDULE = {
 
 # Set to False to disable background load and restore original behaviour.
 ENABLE_BACKGROUND_WORKLOAD = True
+# ENABLE_BACKGROUND_WORKLOAD = False
 
 # ---------------------------------------------------------------
 # Time-varying resource staffing schedule
@@ -199,28 +228,45 @@ ENABLE_BACKGROUND_WORKLOAD = True
 # ---------------------------------------------------------------
 RESOURCE_SCHEDULE = {
     "Eq_Medica": [
-        ( 0,  2, 4),
-        ( 2,  4, 4),   # quiet night - reduced staff
-        ( 4,  6, 4),
-        ( 6,  8, 6),
-        ( 8, 10, 6),
-        (10, 12, 6),   # peak - full team
-        (12, 14, 6),
-        (14, 16, 6),
-        (16, 18, 6),
-        (18, 20, 4),
-        (20, 22, 4),
-        (22, 24, 4),
+        ( 0,  7, 3), # A confirmar
+        ( 7, 19, 5), # Inicio do dio (eletivas + urgencias)        
+        (19, 24, 3),        
+    ],
+    "Anestesista": [
+        ( 0,  7, 3), # A confirmar
+        ( 7, 19, 5), # Inicio do dio (eletivas + urgencias)        
+        (19, 24, 3),        
     ],
     "Enfermeiro": [
-        ( 0,  6, 1),
-        ( 6, 18, 2),
-        (18, 24, 2),
+        (0,   7, 1),
+        (7,  13, 1), # Inicio do dio
+        (13, 19, 2),
+        (19, 24, 1),
+    ],
+    "Farmacia": [
+        (0,   6, 2),
+        (6,  18, 2), # Dio todo        
+        (18, 24, 2), # Troca a equipe mas mantem a quantidade até 7AM
     ],
     "Tec_Enfermagem": [
-        ( 0,  6, 10),
-        ( 6, 18, 11),
-        (18, 24, 11),
+        ( 0,  7,  7), # Ao todo sao 7, mas sao demandados 3 ou 4        
+        ( 7, 19, 10), # Inicio do dio
+        (19, 24,  7),        
+    ],
+    "Tec_Radiologia": [
+        (0,   7, 1),
+        (7,  19, 2), # Dio todo        
+        (19, 24, 1), # Troca a equipe mas mantem a quantidade até 7AM
+    ],
+    "Eq_Radiologia":[
+        (0,   7, 1),
+        (7,  19, 2), # Dio todo        
+        (19, 24, 1), # Troca a equipe mas mantem a quantidade até 7AM
+    ],
+    "Eq_Higienizacao":[
+        (0,   7, 1),
+        (7,  19, 2), # Dio todo        
+        (19, 24, 1), # Troca a equipe mas mantem a quantidade até 7AM
     ],
     # add other resources as needed ...
 }
@@ -228,44 +274,27 @@ RESOURCE_SCHEDULE = {
 # ---------------------------------------------------------------
 # Generic time-dependent arrival
 # ---------------------------------------------------------------
-# ================================================================
-# VERY STRONG Daytime Arrival Profile (aligned with real data)
-# ================================================================
-# ARRIVAL_SLOTS = [
-#     ( 0,  2, 0.012),   # Night - very low
-#     ( 2,  4, 0.005),
-#     ( 4,  6, 0.010),
-#     ( 6,  8, 0.210),   # ← Big morning ramp-up
-#     ( 8, 10, 0.155),
-#     (10, 12, 0.175),   # Peak
-#     (12, 14, 0.135),
-#     (14, 16, 0.140),
-#     (16, 18, 0.098),
-#     (18, 20, 0.035),   # Sharp drop
-#     (20, 22, 0.015),
-#     (22, 24, 0.010),
-# ]
-
-# ARRIVAL_SLOTS = [
-#     ( 0,  2, 0.018),   # 00–02h:  1.8%  ← reduced
-#     ( 2,  4, 0.006),   # 02–04h:  0.6%
-#     ( 4,  6, 0.008),   # 04–06h:  0.8%
-#     ( 6,  8, 0.195),   # 06–08h: 19.5%  ← increased
-#     ( 8, 10, 0.135),   # 08–10h: 13.5%
-#     (10, 12, 0.162),   # 10–12h: 16.2%
-#     (12, 14, 0.118),   # 12–14h: 11.8%
-#     (14, 16, 0.132),   # 14–16h: 13.2%
-#     (16, 18, 0.115),   # 16–18h: 11.5%
-#     (18, 20, 0.045),   # 18–20h:  4.5%  ← reduced
-#     (20, 22, 0.038),   # 20–22h:  3.8%
-#     (22, 24, 0.028),   # 22–00h:  2.8%
-# ]
 
 
 # ---------------------------------------------------------------
-# Generic time-dependent arrival
+# Time-varying arrival profiles — SEPARATE for weekdays and weekends
 # ---------------------------------------------------------------
-ARRIVAL_SLOTS = [
+# WHY TWO PROFILES?
+# ─────────────────
+# On weekdays the Centro Cirúrgico operates ~06h–22h with a broad
+# morning–afternoon peak.  On weekends only urgent/emergency cases
+# are performed, concentrated in the morning (≈06h–14h) with a
+# very steep fall-off afterward.
+# Using a single 24-slot weekday profile with only a reduced 'wf'
+# factor still spreads arrivals across the full 24-slot weekday
+# window; the inversion walk then crosses day boundaries mid-slot
+# and can pick up the wrong weekday factor for part of the weekend
+# day — producing weekday-level rates on Saturday/Sunday.
+# Separate profiles eliminate this entirely: the slot boundaries
+# themselves are correct for each day type.
+
+# Weekday profile (Monday–Friday): broad operating window
+ARRIVAL_SLOTS_WEEKDAY = [
     ( 0,  2, 0.035),   # 00–02h:  3.5%
     ( 2,  4, 0.009),   # 02–04h:  0.9%
     ( 4,  6, 0.010),   # 04–06h:  1.0%
@@ -280,27 +309,59 @@ ARRIVAL_SLOTS = [
     (22, 24, 0.061),   # 22–00h:  6.1%
 ]
 
+# Weekend profile (Saturday–Sunday): concentrated morning window,
+# minimal activity outside 06h–16h.
+# Fractions must also sum to 1.0 — they represent the SHAPE of
+# the within-day distribution; the VOLUME is governed by wf × base.
+ARRIVAL_SLOTS_WEEKEND = [
+    ( 0,  6, 0.030),   # 00–06h:  3.0%  — overnight urgencies only
+    ( 6,  8, 0.210),   # 06–08h: 21.0%  — morning ramp-up
+    ( 8, 10, 0.280),   # 08–10h: 28.0%  — peak
+    (10, 12, 0.220),   # 10–12h: 22.0%  — late morning
+    (12, 14, 0.140),   # 12–14h: 14.0%  — afternoon taper
+    (14, 16, 0.080),   # 14–16h:  8.0%  — low afternoon
+    (16, 24, 0.040),   # 16–24h:  4.0%  — evening/night minimal
+]
+# Validate: 0.030+0.210+0.280+0.220+0.140+0.080+0.040 = 1.000 ✓
 
-# Pesos baseados na média diária real dividida pela média global (13.33)
+# Keep the old name as an alias so any external reference still works.
+ARRIVAL_SLOTS = ARRIVAL_SLOTS_WEEKDAY
+
+# ---------------------------------------------------------------
+# Day-of-week volume factors  (INDEPENDENT of BASE_ARRIVALS_PER_DAY)
+# ---------------------------------------------------------------
+# These are PURE RELATIVE WEIGHTS derived from observed historical means.
+# The denominator is the fixed historical global mean (≈14.38) and must
+# NOT reference BASE_ARRIVALS_PER_DAY — otherwise changing the base for
+# scenario planning would cancel out in the product BASE × wf and every
+# scenario would produce identical volumes.
+#
+# How it works:
+#   expected_arrivals_day_d = BASE_ARRIVALS_PER_DAY × wf[d]
+#
+# Changing BASE scales ALL days proportionally while the weekend
+# penalty (wf≈0.55–0.69) is preserved in every scenario.
+#
+# Source data (13 weeks of observations):
+#   Segunda=16.38  Terça=17.46  Quarta=16.17  Quinta=17.31
+#   Sexta=15.54    Sábado=9.92  Domingo=7.85
+#   Historical global mean = (16.38+17.46+16.17+17.31+15.54+9.92+7.85)/7 ≈ 14.38
+_HIST_GLOBAL_MEAN = 14.375714285714286   # fixed — do NOT replace with BASE_ARRIVALS_PER_DAY
+
 WEEKDAY_FACTORS = {
-    0: 14.74 / 13.3328,  # Segunda
-    1: 15.67 / 13.3328,  # Terça
-    2: 14.98 / 13.3328,  # Quarta (Base da simulação: 2025-01-01)
-    3: 15.84 / 13.3328,  # Quinta
-    4: 14.58 / 13.3328,  # Sexta
-    5: 8.88 / 13.3328,   # Sábado (Menor volume no FDS)
-    6: 8.64 / 13.3328,   # Domingo (Menor volume no FDS)
+    0: 16.38 / _HIST_GLOBAL_MEAN,  # Segunda-feira  (Monday)    ≈ 1.139
+    1: 17.46 / _HIST_GLOBAL_MEAN,  # Terça-feira    (Tuesday)   ≈ 1.214
+    2: 16.17 / _HIST_GLOBAL_MEAN,  # Quarta-feira   (Wednesday) ≈ 1.125  ← start_day_of_week=2
+    3: 17.31 / _HIST_GLOBAL_MEAN,  # Quinta-feira   (Thursday)  ≈ 1.204
+    4: 15.54 / _HIST_GLOBAL_MEAN,  # Sexta-feira    (Friday)    ≈ 1.081
+    5:  9.92 / _HIST_GLOBAL_MEAN,  # Sábado         (Saturday)  ≈ 0.690  ← weekend
+    6:  7.85 / _HIST_GLOBAL_MEAN,  # Domingo        (Sunday)    ≈ 0.546  ← weekend
 }
-
-# WEEKDAY_FACTORS = {
-#     0: 1.25,  # Monday
-#     1: 1.30,  # Tuesday
-#     2: 1.22,  # Wednesday
-#     3: 1.28,  # Thursday
-#     4: 1.20,  # Friday
-#     5: 0.65,  # Saturday
-#     6: 0.60,  # Sunday
-# }
+# Scenario examples with BASE_ARRIVALS_PER_DAY:
+#   BASE=14.38 → Sat≈9.92,  Sun≈7.85  (historical baseline)
+#   BASE=16    → Sat≈11.0,  Sun≈8.7   (growth scenario)
+#   BASE=20    → Sat≈13.8,  Sun≈10.9  (stress scenario)
+# The weekend:weekday ratio is ~0.60–0.69 in every scenario.
 
 # ================================================================
 HOURS = 60  # Time conversion factor (base time: Minutos)
@@ -314,21 +375,43 @@ def make_nhpp_interarrival(
     arrival_slots,
     base_arrivals_per_day,
     weekday_factors,
-    start_day_of_week=2):
+    start_day_of_week=2,
+    arrival_slots_weekend=None,
+    weekend_days=(5, 6)):
     """
-    Piecewise-constant Non-Homogeneous Poisson Process — CORRECT implementation.
+    Piecewise-constant Non-Homogeneous Poisson Process — CORRECT implementation
+    with separate weekday / weekend arrival profiles.
 
     WHY THE PREVIOUS VERSION WAS WRONG
     ────────────────────────────────────
-    The old code called random.expovariate(λ_current_slot) and returned that
-    value directly as the interarrival time.  This is only valid when the next
-    arrival is guaranteed to fall inside the *same* slot.  For low-rate slots
-    (e.g. 02-04h with fraction=0.009) the mean interarrival drawn is ~16 hours,
-    jumping clean over the entire peak daytime window (06-18h = 78% of daily
-    volume).  The simulation produced ~8 arrivals/day instead of 14, with entire
-    days having only 1-2 patients.
+    The old code used a single ``arrival_slots`` profile for every day.
+    The inversion walk steps forward slot-by-slot; when it crossed a midnight
+    boundary it called ``_lambda_at`` with the new time and picked up the
+    correct weekday factor (wf)—but ``_slot_end_absolute`` still used the
+    WEEKDAY slot boundaries to decide where the next boundary was.  On a
+    weekend day the slot widths from the weekday profile were used, so the
+    walk could land inside a slot whose *boundary* placed ``t`` at a point
+    where the day-index integer changed back to a weekday, inadvertently
+    applying a weekday ``wf`` for part of the weekend day.  Over many days
+    this inflated the simulated weekend volume toward weekday levels.
 
-    CORRECT ALGORITHM — Piecewise Inversion Method
+    A second issue: ``BASE_ARRIVALS_PER_DAY`` was set to 16 while
+    ``WEEKDAY_FACTORS`` were calibrated with denominator 13.33 (a different
+    reference mean), so the expected daily arrivals were consistently
+    over-estimated for every day type.
+
+    FIXES
+    ──────
+    1. ``arrival_slots_weekend`` — a separate profile for days in
+       ``weekend_days`` (default: Python weekdays 5=Sat, 6=Sun).
+       Both ``_lambda_at`` AND ``_slot_end_absolute`` select the right
+       profile based on the actual weekday, ensuring the slot boundaries
+       are always consistent with the rate computation.
+    2. ``BASE_ARRIVALS_PER_DAY`` is now set to the true historical daily
+       mean so that ``wf = historical_mean_d / global_mean`` gives:
+           E[arrivals on day d] = BASE × wf[d] = historical_mean_d  ✓
+
+    ALGORITHM — Piecewise Inversion Method
     ────────────────────────────────────────────────
     1. Draw E ~ Exponential(1): one "unit of expected arrivals to consume".
     2. Starting at the current simulation time t, walk forward slot by slot.
@@ -336,42 +419,71 @@ def make_nhpp_interarrival(
        position t: Δ = λ_slot × (slot_end − t).
     4. If E ≤ Δ  →  the next arrival lands inside this slot at t + E / λ_slot.
        If E > Δ  →  subtract Δ, advance t to the next slot boundary, repeat.
-    5. Correctly inherits the day-of-week factor as t crosses midnight.
+    5. Correctly inherits the day-of-week factor AND the correct slot profile
+       as t crosses midnight.
 
-    This is mathematically equivalent to the inversion of the integrated rate
-    function Λ(t) = ∫₀ᵗ λ(s)ds, and is the standard approach for
-    piecewise-constant NHPPs (Lewis & Shedler 1979).
+    Parameters
+    ──────────
+    env                   : simpy.Environment
+    arrival_slots         : list[(start_h, end_h, fraction)]  weekday profile
+    base_arrivals_per_day : float  historical global daily mean (≈14.38)
+    weekday_factors       : dict {weekday_int: float}  wf = day_mean / global_mean
+    start_day_of_week     : int  Python weekday (0=Mon…6=Sun) of simulation t=0
+    arrival_slots_weekend : list[(start_h, end_h, fraction)] or None
+                            Weekend profile; if None falls back to arrival_slots.
+    weekend_days          : tuple of weekday ints treated as weekend (default (5,6))
     """
 
     MINUTES_PER_DAY = 1440
 
-    # Safety validation
-    total_fraction = sum(f for _, _, f in arrival_slots)
-    if abs(total_fraction - 1.0) > 1e-6:
-        raise ValueError(
-            f"Arrival slot fractions must sum to 1.0, got {total_fraction}"
-        )
+    _slots_weekday = arrival_slots
+    _slots_weekend = arrival_slots_weekend if arrival_slots_weekend is not None else arrival_slots
 
-    def _lambda_at(absolute_minute):
-        """Return the arrival rate (arrivals/min) at a given absolute minute."""
+    # Safety validation — both profiles must partition [0, 24)
+    for label, slots in (("weekday", _slots_weekday), ("weekend", _slots_weekend)):
+        total = sum(f for _, _, f in slots)
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(
+                f"Arrival slot fractions ({label}) must sum to 1.0, got {total:.6f}"
+            )
+
+    def _weekday_and_slots(absolute_minute):
+        """Return (weekday_int, wf, slot_profile) for the given absolute minute."""
         day_index = int(absolute_minute // MINUTES_PER_DAY)
         weekday   = (start_day_of_week + day_index) % 7
         wf        = weekday_factors.get(weekday, 1.0)
-        hour      = (absolute_minute % MINUTES_PER_DAY) / 60.0
-        for start_h, end_h, fraction in arrival_slots:
+        slots     = _slots_weekend if weekday in weekend_days else _slots_weekday
+        return weekday, wf, slots
+
+    def _lambda_at(absolute_minute):
+        """Return the arrival rate (arrivals/min) at a given absolute minute.
+
+        Selects the correct slot profile (weekday vs weekend) based on the
+        computed calendar weekday, ensuring the weekend volume-factor (wf) is
+        applied consistently for the FULL weekend day.
+        """
+        _, wf, slots = _weekday_and_slots(absolute_minute)
+        hour = (absolute_minute % MINUTES_PER_DAY) / 60.0
+        for start_h, end_h, fraction in slots:
             if start_h <= hour < end_h:
                 slot_min = (end_h - start_h) * 60
                 return max(base_arrivals_per_day * wf * fraction / slot_min, 1e-9)
         return 1e-9  # safety fallback
 
     def _slot_end_absolute(absolute_minute):
-        """Return the absolute minute at which the current slot ends."""
+        """Return the absolute minute at which the current slot ends.
+
+        Uses the SAME profile as _lambda_at (weekday or weekend) so that the
+        slot boundaries seen by the inversion walk are always consistent with
+        the rate that was applied, preventing day-index drift across midnight.
+        """
         day_start = int(absolute_minute // MINUTES_PER_DAY) * MINUTES_PER_DAY
+        _, _, slots = _weekday_and_slots(absolute_minute)
         hour = (absolute_minute % MINUTES_PER_DAY) / 60.0
-        for start_h, end_h, _ in arrival_slots:
+        for start_h, end_h, _ in slots:
             if start_h <= hour < end_h:
                 return day_start + end_h * 60
-        # At exact midnight boundary — start of first slot of next day
+        # Fallback: advance to the start of the next day
         return day_start + MINUTES_PER_DAY
 
     def interarrival():
@@ -435,7 +547,6 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
                 
 
 
-
     # Unidade básica para todos os tempos: minutos
     def distribution(tipo):
         # Arrival rates (per day - per minute if DAYS = 1440)
@@ -455,10 +566,12 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             '1_montagem_kits': 5,
 
             # 1. Rec kit, Sep. Instrumentos, Check list, Org., Registro Info (P:3,4,5,8,9)
-            '1_organiza_sala_e_kits': random.triangular(20, 25, 30),
+            # '1_organiza_sala_e_kits': random.triangular(20, 25, 30),
+            '1_organiza_sala_e_kits': random.triangular(8, 10, 15),
 
             # 2. Transporte do paciente do CTI ao Centro Cirúrgico (P:11)
-            '2_transporte_CTI_CC': random.triangular(20, 80, 150),
+            # '2_transporte_CTI_CC': random.triangular(20, 80, 150),
+            '2_transporte_CTI_CC': random.triangular(20, 40, 60),
 
             # 2. Transporte do paciente de sua origem ao Centro Cirúrgico (P:11)
             '2_transporte_origem_CC': random.triangular(10, 15, 20),
@@ -467,15 +580,18 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             #####################CONFERIR#######################            
             # 2_adm_conf.txt filtrado (retirada outliers: > 5 min, < 75 min)
             # '2_adm_e_conf_paciente': random.triangular(15, 25, 30),
-            '2_adm_e_conf_paciente': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            # '2_adm_e_conf_paciente': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            '2_adm_e_conf_paciente': 1/3 * (4.9 + 100 * random.betavariate(1.18591, 616.092)),
 
             # 2. Admissão do Paciente (P:16,17)
             # '2_adm_paciente': random.triangular(10, 15, 20),
-            '2_adm_paciente': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            # '2_adm_paciente': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            '2_adm_paciente': 1/3 * (4.9 + 100 * random.betavariate(1.18591, 616.092)),
 
             # 2. Checklist de Cirurgia Segura Físico (P:18)
             # '3_checklist_pre_cir': 5,
-            '3_checklist_pre_cir': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            # '3_checklist_pre_cir': 1/3 * (5.98926 + 7696.99 * random.betavariate(1.18591, 616.092)),
+            '3_checklist_pre_cir': 1/3 * (4.9 + 100 * random.betavariate(1.18591, 616.092)),
 
             # 3. Ato Anestésico (P:19)
 
@@ -533,15 +649,15 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     
     
 
-    Enfermeiro = model.add_resource("Enfermeiro", 3, "regular") 
+    Enfermeiro = model.add_resource("Enfermeiro", 1, "regular") 
     Farmacia = model.add_resource("Farmacia", 2, "regular") 
-    Tec_Enfermagem = model.add_resource("Tec_Enfermagem", 11, "regular") 
+    Tec_Enfermagem = model.add_resource("Tec_Enfermagem", 6, "regular") 
     Eq_Assistencial_CTI = model.add_resource("Eq_Assistencial_CTI", 1, "regular") 
-    Eq_Medica = model.add_resource("Eq_Medica", 6, "regular")     
-    Anestesista = model.add_resource("Anestesista", 6, "regular")    
+    Eq_Medica = model.add_resource("Eq_Medica", 5, "regular")     
+    Anestesista = model.add_resource("Anestesista", 5, "regular")    
     Tec_Radiologia = model.add_resource("Tec_Radiologia", 2, "regular") 
-    Eq_Radiologia = model.add_resource("Eq_Radiologia", 4, "regular") 
-    Func_CME = model.add_resource("Func_CME", 2, "regular") 
+    Eq_Radiologia = model.add_resource("Eq_Radiologia", 2, "regular") 
+    Func_CME = model.add_resource("Func_CME", 1, "regular") 
     Eq_Higienizacao = model.add_resource("Eq_Higienizacao", 2, "regular")
     # Tec_Enfermagem_X = model.add_resource("Tec_Enfermagem_X", 1, "regular")  
     
@@ -742,8 +858,16 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     #
     # sala_cc.level (0–5) = available rooms; in_use = 5 − level  (max 5)
     # ═══════════════════════════════════════════════════════════════════════════
-    # sala_CC = simpy.Container(model.env, capacity=6, init=6)
-    sala_CC = simpy.Container(model.env, capacity=4, init=4)
+    sala_CC = simpy.Container(model.env, capacity=5, init=5)
+
+    # WIP log: each entry is (absolute_time, rooms_occupied).
+    # Populated exclusively by SalaCC_Seize (on get) and SalaCC_Release
+    # (on put), so it always reflects the true number of patients inside
+    # the OR -- bounded by sala_CC.capacity (5).
+    # plot_wip_over_time() must NOT be used for this metric: it counts all
+    # entities from creation to disposal (pre-OR queue + OR + post-OR
+    # discharge) and therefore routinely exceeds 5.
+    model.wip_cc_log = []   # list[tuple[float, int]]
 
     # ── Custom gateway blocks ──────────────────────────────────────────────────
     # These two thin classes are the ONLY place Sala_CC logic lives.
@@ -786,6 +910,11 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             
             # 1. BLOCKS the process pipeline here until a room slot becomes free
             yield self._sala_cc.get(1)
+
+            # Record OR WIP: rooms now occupied (1..5).
+            # This is the ONLY correct place to measure surgical-centre WIP;
+            # it counts patients physically inside the OR, not in queue or recovery.
+            model.wip_cc_log.append((self.env.now, sala_CC.capacity - sala_CC.level))
 
             # print(
             #     f"[{self.env.now:.2f}] "
@@ -834,6 +963,9 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
             
             # 1. RETURN the operating room slot back to the pool
             yield self._sala_cc.put(1)
+
+            # Record OR WIP after release: level went up by 1, occupied went down by 1.
+            model.wip_cc_log.append((self.env.now, sala_CC.capacity - sala_CC.level))
 
             # print(
             #     f"[{self.env.now:.2f}] "
@@ -1005,16 +1137,16 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
         # DAY SHIFT - elective/planned surgeries dominate
         # -------------------------------------------------
         if 7 <= current_hour < 19:
-            if u < 0.15:    return "Pequena"
-            elif u < 0.75:  return "Media"
+            if u < 0.30:    return "Pequena"
+            elif u < 0.62:  return "Media"
             else:           return "Grande"
         # -------------------------------------------------
         # NIGHT SHIFT - emergency/fast procedures dominate
         # -------------------------------------------------
         else:
-            if u < 0.92:    return "Pequena"
-            elif u < 0.99:  return "Media"
-            else:           return "Grande"
+            if u < 0.20:    return "Pequena"
+            elif u < 0.40:  return "Media"
+            else:           return "Grande" # 60% das cirurgias sao de 2h (grande-porte)
 
 
     # def inject_surgery_size(entity):
@@ -1026,21 +1158,38 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     #         entity.attributes = {}
     #     entity.attributes['surgery_size'] = surgery_size
 
+    # def get_surgery_size(e):
+    #     if hasattr(e, 'surgery_size'):
+    #         return e.surgery_size
+    #     if hasattr(e, 'attributes'):
+    #         return e.attributes.get('surgery_size', 'Pequena')
+    #     return 'Pequena'
+    
+
+    # def is_pequeno(e, ctx):
+    #     return get_surgery_size(e) == "Pequena"
+
+    # def is_medio(e, ctx):
+    #     return get_surgery_size(e) == "Media"
+
+    # def is_grande(e, ctx):
+    #     return get_surgery_size(e) == "Grande"
+
     def get_surgery_size(e):
-        if hasattr(e, 'surgery_size'):
-            return e.surgery_size
-        if hasattr(e, 'attributes'):
-            return e.attributes.get('surgery_size', 'Pequena')
-        return 'Pequena'
+        return e.get_attribute("surgery_size", "MISSING")
 
     def is_pequeno(e, ctx):
-        return get_surgery_size(e) == "Pequena"
+        s = get_surgery_size(e)
+        # print("SIZE=", s)
+        return s == "Pequena"
 
     def is_medio(e, ctx):
-        return get_surgery_size(e) == "Media"
+        s = get_surgery_size(e)
+        return s == "Media"
 
     def is_grande(e, ctx):
-        return get_surgery_size(e) == "Grande"
+        s = get_surgery_size(e)
+        return s == "Grande"
 
     # Register ONLY callback
     # arrivals_cc.assign_attributes_callback = inject_surgery_size
@@ -1131,15 +1280,26 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     )
     adm_paciente_P1617.set_resource_name('Tec_Enfermagem')
 
-    # ProcessBlock block: Process with ONE resource
-    proc_cirurgico_P18 = ProcessBlock(
+    # ProcessBlock block: Process with ONE resource    
+    # proc_cirurgico_P18 = ProcessBlock(
+    proc_cirurgico_P18 = MultiProcessBlock(
         "Check_Cir_Seg", model.env,
-        resource=Eq_Medica,        
+        # resource=Eq_Medica,        
+        resource_requirements={                        
+            Eq_Medica: 1,            
+            Tec_Enfermagem: 1,
+            Anestesista: 1
+        },
         delay_time=lambda: distribution('3_checklist_pre_cir'),
-        resource_units=1,                 
+        # resource_units=1,                 
         event_logger=event_logger
     )
-    proc_cirurgico_P18.set_resource_name('Eq_Medica')    
+    # proc_cirurgico_P18.set_resource_name('Eq_Medica')    
+    proc_cirurgico_P18.set_resource_names({                
+        Eq_Medica: 'Eq_Medica',        
+        Tec_Enfermagem: 'Tec_Enfermagem',
+        Anestesista: 'Anestesista'
+    })  
 
     # ProcessBlock block: Process with ONE resource
     proc_cirurgico_P19 = ProcessBlock(
@@ -1369,12 +1529,13 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
 
     # MultiProcessBlock block: Process with MULTIPLE resources
+    # Conferência e registro
     proc_cirurgico_pos_P23aP30 = MultiProcessBlock(
         "Conf_Registros", model.env,        
         resource_requirements={            
             Anestesista: 1,
             Eq_Medica: 1,
-            #Tec_Radiologia: 1,            
+            Tec_Radiologia: 1,            
             Tec_Enfermagem: 1
         },        
         delay_time=lambda: distribution('3_conf_registros_pos_cir'),        
@@ -1383,7 +1544,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     proc_cirurgico_pos_P23aP30.set_resource_names({        
         Anestesista: 'Anestesista',
         Eq_Medica: 'Eq_Medica',
-        #Tec_Radiologia: 'Tec_Radiologia',        
+        Tec_Radiologia: 'Tec_Radiologia',        
         Tec_Enfermagem: 'Tec_Enfermagem'
     })
     
@@ -1398,14 +1559,23 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     limpeza_organizacao_P37.set_resource_name('Tec_Enfermagem') 
 
     # ProcessBlock block: Process with ONE resource
-    limpeza_organizacao_P38 = ProcessBlock(
+    # limpeza_organizacao_P38 = ProcessBlock(
+    limpeza_organizacao_P38 = MultiProcessBlock(
         "Sep_MatSujo", model.env,
-        resource=Func_CME,        
+        # resource=Func_CME,        
+        resource_requirements={                        
+            Func_CME: 1,            
+            Tec_Enfermagem: 1
+        },
         delay_time=lambda: distribution('5_sep_mat_sujos'),
-        resource_units=1,                 
+        # resource_units=1,                 
         event_logger=event_logger
     )
-    limpeza_organizacao_P38.set_resource_name('Func_CME')
+    # limpeza_organizacao_P38.set_resource_name('Func_CME')
+    limpeza_organizacao_P38.set_resource_names({                
+        Func_CME: 'Func_CME',        
+        Tec_Enfermagem: 'Tec_Enfermagem'
+    })
 
     # ProcessBlock block: Process with ONE resource
     limpeza_organizacao_P39 = ProcessBlock(
@@ -1527,8 +1697,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     prep_sala_P2.connect_to(prep_sala_P3a9)
     prep_sala_P3a9.connect_to(origem_paciente_decision)
 
-    origem_paciente_decision.add_route("Pac_CTI", adm_conf_paciente_P11a, probability=0.071)
-    origem_paciente_decision.add_route("Pac_Outros", adm_conf_paciente_P11b, probability=0.929)
+    origem_paciente_decision.add_route("Pac_CTI", adm_conf_paciente_P11a, probability=0.136) # 13.6 %
+    origem_paciente_decision.add_route("Pac_Outros", adm_conf_paciente_P11b, probability=0.864)
 
     adm_conf_paciente_P11a.connect_to(adm_conf_paciente_P12a15)    
     adm_conf_paciente_P11b.connect_to(adm_conf_paciente_P12a15)            
@@ -1560,9 +1730,10 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
 
     # ====================
     proc_cirurgico_P_P20_025.connect_to(faz_ex_radio_cir_p_decision)
-
-    faz_ex_radio_cir_p_decision.add_route("Cir_P_Sem_Radio", proc_cirurgico_P_P20aP22_015, probability=0.95)
-    faz_ex_radio_cir_p_decision.add_route("Cir_P_Com_Radio", proc_cirurgico_P_P20aP22_015_Radio, probability=0.05)
+    # For orthopedic/vascular surgery: 40%−70%
+    #  For general surgery: 10%−30%
+    faz_ex_radio_cir_p_decision.add_route("Cir_P_Sem_Radio", proc_cirurgico_P_P20aP22_015, probability=0.60)
+    faz_ex_radio_cir_p_decision.add_route("Cir_P_Com_Radio", proc_cirurgico_P_P20aP22_015_Radio, probability=0.40)
 
     proc_cirurgico_P_P20aP22_015.connect_to(proc_cirurgico_P_P20_060)
     proc_cirurgico_P_P20aP22_015_Radio.connect_to(proc_cirurgico_P_P20_060)
@@ -1570,8 +1741,8 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # ====================
     proc_cirurgico_M_P20_025.connect_to(faz_ex_radio_cir_m_decision)
 
-    faz_ex_radio_cir_m_decision.add_route("Cir_M_Sem_Radio", proc_cirurgico_M_P20aP22_015, probability=0.80)
-    faz_ex_radio_cir_m_decision.add_route("Cir_M_Com_Radio", proc_cirurgico_M_P20aP22_015_Radio, probability=0.20)
+    faz_ex_radio_cir_m_decision.add_route("Cir_M_Sem_Radio", proc_cirurgico_M_P20aP22_015, probability=0.60)
+    faz_ex_radio_cir_m_decision.add_route("Cir_M_Com_Radio", proc_cirurgico_M_P20aP22_015_Radio, probability=0.40)
 
     proc_cirurgico_M_P20aP22_015.connect_to(proc_cirurgico_M_P20_060)
     proc_cirurgico_M_P20aP22_015_Radio.connect_to(proc_cirurgico_M_P20_060)
@@ -1606,111 +1777,111 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # CONFIGURE FINANCIAL ATTRIBUTES
     # ================================================================    
     # Assign costs to each activity
-    arrivals_cc.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
-    )
-    # Assign costs to each activity
+    # arrivals_cc.assign_attributes(
+    #     cost=lambda: random.uniform(0, 1)  # costs $0
+    # )
+    # Assign costs to each activity: Aviso_Cir
     prep_sala_P16.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Monta_Kits
     prep_sala_P2.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 175)  # costs $175
     )    
-     # Assign costs to each activity
+     # Assign costs to each activity: Org_Sala_Kits
     prep_sala_P3a9.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(300, 360)  # costs $351
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Transp_CTI_CC
     adm_conf_paciente_P11a.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(0, 1)  # costs $0
     ) 
      # Assign costs to each activity
     adm_conf_paciente_P11b.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(0, 1)  # costs $0
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Adm_Conf_Pac
     adm_conf_paciente_P12a15.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Adm_Paciente
     adm_paciente_P1617.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(300, 350)  # costs $350
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Check_Cir_Seg
     proc_cirurgico_P18.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
-     # Assign costs to each activity
+     # Assign costs to each activity: Ato_Anest
     proc_cirurgico_P19.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(700, 1000)  # costs $1054
     ) 
     # =======================
-    # Assign costs to each activity
+    # Assign costs to each activity: Cir_Pequena_025
     proc_cirurgico_P_P20_025.assign_attributes(
-        cost=lambda: random.uniform(50, 100)  # Surgery costs $100-200
+        cost=lambda: 0.25*random.uniform(3000, 3500)  # Surgery costs $3867
     )
-    # Assign costs to each activity
+    # Assign costs to each activity: Cir_Pequena_015
     proc_cirurgico_P_P20aP22_015.assign_attributes(
-        cost=lambda: random.uniform(100, 200)  # Surgery costs $100-200
+        cost=lambda: 0.15*random.uniform(3000, 3500)  # Surgery costs $3867
     )
-    # Assign costs to each activity
+    # Assign costs to each activity: Radiologia
     proc_cirurgico_P_P20aP22_015_Radio.assign_attributes(
-        cost=lambda: random.uniform(110, 210)  # Surgery costs $100-200
+        cost=lambda: random.uniform(0, 1)  # Surgery costs $1054 (em paralelo)
     )
-    # Assign costs to each activity
+    # Assign costs to each activity Cir_Pequena_060
     proc_cirurgico_P_P20_060.assign_attributes(
-        cost=lambda: random.uniform(80, 110)  # Surgery costs $100-200
+        cost=lambda: 0.60*random.uniform(3000, 3500)  # Surgery costs $3867
     )
     # =======================
     # =======================
     # Assign costs to each activity
     proc_cirurgico_M_P20_025.assign_attributes(
-        cost=lambda: random.uniform(50, 100)  # Surgery costs $100-200
+        cost=lambda: 0.25*random.uniform(3000, 3500)  # Surgery costs $4042
     )
     # Assign costs to each activity
     proc_cirurgico_M_P20aP22_015.assign_attributes(
-        cost=lambda: random.uniform(100, 200)  # Surgery costs $100-200
+        cost=lambda: 0.15*random.uniform(3000, 3500)  # Surgery costs $4042
     )
     # Assign costs to each activity
     proc_cirurgico_M_P20aP22_015_Radio.assign_attributes(
-        cost=lambda: random.uniform(110, 210)  # Surgery costs $100-200
+        cost=lambda: random.uniform(0, 1)  # Surgery costs $100-175
     )
     # Assign costs to each activity
     proc_cirurgico_M_P20_060.assign_attributes(
-        cost=lambda: random.uniform(80, 110)  # Surgery costs $100-200
+        cost=lambda: 0.60*random.uniform(3000, 3500)  # Surgery costs $4042
     )
     # =======================
     # =======================
     # Assign costs to each activity
     proc_cirurgico_G_P20_025.assign_attributes(
-        cost=lambda: random.uniform(50, 100)  # Surgery costs $100-200
+        cost=lambda: 0.25*random.uniform(3000, 3500)  # Surgery costs $4218
     )
     # Assign costs to each activity
     proc_cirurgico_G_P20aP22_015.assign_attributes(
-        cost=lambda: random.uniform(100, 200)  # Surgery costs $100-200
+        cost=lambda: 0.15*random.uniform(3000, 3500)  # Surgery costs $4218
     )
     # Assign costs to each activity
     proc_cirurgico_G_P20aP22_015_Radio.assign_attributes(
-        cost=lambda: random.uniform(110, 210)  # Surgery costs $100-200
+        cost=lambda: random.uniform(0, 1)  # Surgery costs $100-175
     )
     # Assign costs to each activity
     proc_cirurgico_G_P20_060.assign_attributes(
-        cost=lambda: random.uniform(80, 110)  # Surgery costs $100-200
+        cost=lambda: 0.60*random.uniform(3000, 3500)  # Surgery costs $4218
     )
     # =======================
 
-    # Assign costs to each activity
+    # Assign costs to each activity: Remov_Residuos
     limpeza_organizacao_P37.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
-    # Assign costs to each activity
+    # Assign costs to each activity: Sep_MatSujo
     limpeza_organizacao_P38.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
-    # Assign costs to each activity
+    # Assign costs to each activity: limpeza_organizacao
     limpeza_organizacao_P39.assign_attributes(
-        cost=lambda: random.uniform(20, 30)  # costs $20-30
+        cost=lambda: random.uniform(450, 550)  # costs $527
     ) 
     # Assign costs to each activity
     #proc_materiais_P40aP44.assign_attributes(
@@ -1720,7 +1891,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # Assign revenue at discharge (based on patient complexity)
     def calculate_revenue():
         """Revenue varies by patient complexity"""
-        return random.uniform(400, 500)
+        return random.uniform(800, 1100) # Revenue: $ 1514
     
     discharge_srpa.assign_attributes(revenue=calculate_revenue)                
     # ================================================================
@@ -1741,7 +1912,7 @@ def simulation_wrapper(seed=None, until=None, warm_up_period=None):
 
     # Create configuration
     config = SimulationConfig(
-        duration=36*DAYS,
+        duration=31*DAYS,
         warm_up_period=3*DAYS,        
         seed=123,
         check_stability=True
@@ -1782,7 +1953,7 @@ def run_replications():
         base_seed=12345,
         # until=365*DAYS,
         # warm_up_period=30*DAYS
-        until=36*DAYS,
+        until=31*DAYS,
         warm_up_period=3*DAYS
     )
 
@@ -1857,7 +2028,7 @@ def factorial_analysis():
         n_replications=5,
         # simulation_time=365*DAYS,  # 40 hours
         # warm_up_period=30*DAYS,    # 7 hours
-        simulation_time=36*DAYS,  # 40 hours
+        simulation_time=31*DAYS,  # 40 hours
         warm_up_period=3*DAYS,    # 7 hours
         verbose=True
     )
@@ -1903,7 +2074,7 @@ def main():
         # until=20
         # duration=24*HOURS,
         # warm_up_period=2*HOURS,
-        duration=36*DAYS,
+        duration=31*DAYS,
         warm_up_period=3*DAYS,        
         seed=321,
         check_stability=True
@@ -2055,8 +2226,39 @@ def main():
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Radiologia', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Func_CME', moving_average_window=50)
     plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
     plotter.plot_wip_over_time()
+
+    def plot_cc_wip(model):
+        if not model.wip_cc_log:
+            return
+
+        times = [t for t, _ in model.wip_cc_log]
+        wip   = [v for _, v in model.wip_cc_log]
+
+        plt.figure(figsize=(12,6))
+        plt.step(
+            times,
+            wip,
+            where="post",
+            linewidth=1.5,
+            label="CC WIP"
+        )
+        plt.axhline(
+            y=5,
+            linestyle="--",
+            label="CC Capacity"
+        )
+        plt.ylim(0, 5.5)
+        plt.xlabel("Simulation Time")
+        plt.ylabel("Patients inside CC")
+        plt.title("Centro Cirúrgico WIP")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+    # plot_cc_wip(model) 
+
     plotter.plot_system_time_distribution()
     
     

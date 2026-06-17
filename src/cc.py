@@ -56,7 +56,9 @@ from desk.visualization.interface import run_visualization
 # WEEKDAY_FACTORS below express RELATIVE weights across days-of-week and
 # are intentionally independent of this number — weekends will always be
 # ~55–69 % of whatever daily volume you set here.
-BASE_ARRIVALS_PER_DAY = 16
+
+BASE_ARRIVALS_PER_DAY = 16    # Base
+# BASE_ARRIVALS_PER_DAY = 19      # Cenario 20% aumento da demanda
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
@@ -110,15 +112,15 @@ BACKGROUND_WORKLOAD = {
     # Enfermeiro: Transporte de pacientes, monitoramento na SRPA, preparação de salas, 
     # organização de materiais, programação cirúrgica, coordenação de equipes, 
     # gestão de faltas de materiais, comunicação com enfermarias e tratamento de incidentes.
-    "Enfermeiro":        {"task": 55, "gap": 10},   
+    "Enfermeiro":        {"task": 10, "gap": 5},   
     # Farmacia: Além dos medicamentos cirúrgicos: dispensação de medicamentos, 
     # controle de estoque, gestão de medicamentos controlados, reposição de estoques em 
     # outros setores e processamento de devoluções.
     "Farmacia":          {"task": 35, "gap": 15},   
     # Tec_Enfermagem: Auxilia SRPA o tempo todo
-    "Tec_Enfermagem":    {"task": 15, "gap": 10},   
+    "Tec_Enfermagem":    {"task": 10, "gap": 5},   
     # Eq_Assistencial_CTI: Atividades no CTI
-    "Eq_Assistencial_CTI":{"task":50, "gap": 35},   
+    "Eq_Assistencial_CTI":{"task":3, "gap": 2},   
     # Eq_Medica: Além da cirurgia: registro em prontuário, descrição cirúrgica, 
     # prescrição médica, evolução clínica, codificação no SISREG/SIH/SUS 
     # e comunicação com familiares.
@@ -128,14 +130,14 @@ BACKGROUND_WORKLOAD = {
     # documentação e reconciliação medicamentosa. 
     "Anestesista":       {"task": 25, "gap": 15},   
     # Tec_Radiologia: Se cirurgia ortopedica, 70% de uso
-    "Tec_Radiologia":    {"task": 50, "gap": 25},   
-    "Eq_Radiologia":     {"task": 50, "gap": 25},   
+    "Tec_Radiologia":    {"task": 20, "gap": 15},   
+    "Eq_Radiologia":     {"task": 20, "gap": 15},   
     # Func_CME: Recebimento de instrumentais contaminados: lavagem, montagem/preparo 
     # de caixas cirúrgicas, esterilização e armazenamento.
-    "Func_CME":          {"task": 35, "gap": 5},   
+    "Func_CME":          {"task": 10, "gap": 5},   
     # Além da limpeza entre cirurgias, a equipe de higienização realiza: limpeza terminal, 
     # limpeza de corredores e áreas comuns, coleta e descarte de resíduos e limpezas emergenciais.
-    "Eq_Higienizacao":   {"task": 30, "gap": 35},   
+    "Eq_Higienizacao":   {"task": 30, "gap": 20},   
 }
 
 
@@ -217,6 +219,7 @@ BACKGROUND_SCHEDULE = {
 
 # Set to False to disable background load and restore original behaviour.
 ENABLE_BACKGROUND_WORKLOAD = True
+# ENABLE_BACKGROUND_WORKLOAD = False
 
 # ---------------------------------------------------------------
 # Time-varying resource staffing schedule
@@ -1155,21 +1158,38 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     #         entity.attributes = {}
     #     entity.attributes['surgery_size'] = surgery_size
 
+    # def get_surgery_size(e):
+    #     if hasattr(e, 'surgery_size'):
+    #         return e.surgery_size
+    #     if hasattr(e, 'attributes'):
+    #         return e.attributes.get('surgery_size', 'Pequena')
+    #     return 'Pequena'
+    
+
+    # def is_pequeno(e, ctx):
+    #     return get_surgery_size(e) == "Pequena"
+
+    # def is_medio(e, ctx):
+    #     return get_surgery_size(e) == "Media"
+
+    # def is_grande(e, ctx):
+    #     return get_surgery_size(e) == "Grande"
+
     def get_surgery_size(e):
-        if hasattr(e, 'surgery_size'):
-            return e.surgery_size
-        if hasattr(e, 'attributes'):
-            return e.attributes.get('surgery_size', 'Pequena')
-        return 'Pequena'
+        return e.get_attribute("surgery_size", "MISSING")
 
     def is_pequeno(e, ctx):
-        return get_surgery_size(e) == "Pequena"
+        s = get_surgery_size(e)
+        # print("SIZE=", s)
+        return s == "Pequena"
 
     def is_medio(e, ctx):
-        return get_surgery_size(e) == "Media"
+        s = get_surgery_size(e)
+        return s == "Media"
 
     def is_grande(e, ctx):
-        return get_surgery_size(e) == "Grande"
+        s = get_surgery_size(e)
+        return s == "Grande"
 
     # Register ONLY callback
     # arrivals_cc.assign_attributes_callback = inject_surgery_size
@@ -1757,16 +1777,16 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # CONFIGURE FINANCIAL ATTRIBUTES
     # ================================================================    
     # Assign costs to each activity
-    arrivals_cc.assign_attributes(
-        cost=lambda: random.uniform(0, 1)  # costs $0
-    )
+    # arrivals_cc.assign_attributes(
+    #     cost=lambda: random.uniform(0, 1)  # costs $0
+    # )
     # Assign costs to each activity: Aviso_Cir
     prep_sala_P16.assign_attributes(
-        cost=lambda: random.uniform(150, 200)  # costs $175
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
      # Assign costs to each activity: Monta_Kits
     prep_sala_P2.assign_attributes(
-        cost=lambda: random.uniform(150, 200)  # costs $175
+        cost=lambda: random.uniform(150, 175)  # costs $175
     )    
      # Assign costs to each activity: Org_Sala_Kits
     prep_sala_P3a9.assign_attributes(
@@ -1782,7 +1802,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     ) 
      # Assign costs to each activity: Adm_Conf_Pac
     adm_conf_paciente_P12a15.assign_attributes(
-        cost=lambda: random.uniform(150, 200)  # costs $175
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
      # Assign costs to each activity: Adm_Paciente
     adm_paciente_P1617.assign_attributes(
@@ -1790,20 +1810,20 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     ) 
      # Assign costs to each activity: Check_Cir_Seg
     proc_cirurgico_P18.assign_attributes(
-        cost=lambda: random.uniform(150, 200)  # costs $175
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
      # Assign costs to each activity: Ato_Anest
     proc_cirurgico_P19.assign_attributes(
-        cost=lambda: random.uniform(900, 1000)  # costs $1054
+        cost=lambda: random.uniform(700, 1000)  # costs $1054
     ) 
     # =======================
     # Assign costs to each activity: Cir_Pequena_025
     proc_cirurgico_P_P20_025.assign_attributes(
-        cost=lambda: 0.25*random.uniform(3600, 4400)  # Surgery costs $4218
+        cost=lambda: 0.25*random.uniform(3000, 3500)  # Surgery costs $3867
     )
     # Assign costs to each activity: Cir_Pequena_015
     proc_cirurgico_P_P20aP22_015.assign_attributes(
-        cost=lambda: 0.15*random.uniform(3600, 4400)  # Surgery costs $4218
+        cost=lambda: 0.15*random.uniform(3000, 3500)  # Surgery costs $3867
     )
     # Assign costs to each activity: Radiologia
     proc_cirurgico_P_P20aP22_015_Radio.assign_attributes(
@@ -1811,53 +1831,53 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     )
     # Assign costs to each activity Cir_Pequena_060
     proc_cirurgico_P_P20_060.assign_attributes(
-        cost=lambda: 0.60*random.uniform(3600, 4400)  # Surgery costs $4218
+        cost=lambda: 0.60*random.uniform(3000, 3500)  # Surgery costs $3867
     )
     # =======================
     # =======================
     # Assign costs to each activity
     proc_cirurgico_M_P20_025.assign_attributes(
-        cost=lambda: 0.25*random.uniform(3600, 4400)  # Surgery costs $4218
+        cost=lambda: 0.25*random.uniform(3000, 3500)  # Surgery costs $4042
     )
     # Assign costs to each activity
     proc_cirurgico_M_P20aP22_015.assign_attributes(
-        cost=lambda: 0.15*random.uniform(3600, 4400)  # Surgery costs $4218
+        cost=lambda: 0.15*random.uniform(3000, 3500)  # Surgery costs $4042
     )
     # Assign costs to each activity
     proc_cirurgico_M_P20aP22_015_Radio.assign_attributes(
-        cost=lambda: random.uniform(0, 1)  # Surgery costs $100-200
+        cost=lambda: random.uniform(0, 1)  # Surgery costs $100-175
     )
     # Assign costs to each activity
     proc_cirurgico_M_P20_060.assign_attributes(
-        cost=lambda: 0.60*random.uniform(3600, 4400)  # Surgery costs $4218
+        cost=lambda: 0.60*random.uniform(3000, 3500)  # Surgery costs $4042
     )
     # =======================
     # =======================
     # Assign costs to each activity
     proc_cirurgico_G_P20_025.assign_attributes(
-        cost=lambda: 0.25*random.uniform(3600, 4400)  # Surgery costs $4218
+        cost=lambda: 0.25*random.uniform(3000, 3500)  # Surgery costs $4218
     )
     # Assign costs to each activity
     proc_cirurgico_G_P20aP22_015.assign_attributes(
-        cost=lambda: 0.15*random.uniform(3600, 4400)  # Surgery costs $4218
+        cost=lambda: 0.15*random.uniform(3000, 3500)  # Surgery costs $4218
     )
     # Assign costs to each activity
     proc_cirurgico_G_P20aP22_015_Radio.assign_attributes(
-        cost=lambda: random.uniform(0, 1)  # Surgery costs $100-200
+        cost=lambda: random.uniform(0, 1)  # Surgery costs $100-175
     )
     # Assign costs to each activity
     proc_cirurgico_G_P20_060.assign_attributes(
-        cost=lambda: 0.60*random.uniform(3600, 4400)  # Surgery costs $4218
+        cost=lambda: 0.60*random.uniform(3000, 3500)  # Surgery costs $4218
     )
     # =======================
 
     # Assign costs to each activity: Remov_Residuos
     limpeza_organizacao_P37.assign_attributes(
-        cost=lambda: random.uniform(150, 200)  # costs $175
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
     # Assign costs to each activity: Sep_MatSujo
     limpeza_organizacao_P38.assign_attributes(
-        cost=lambda: random.uniform(150, 200)  # costs $175
+        cost=lambda: random.uniform(150, 175)  # costs $175
     ) 
     # Assign costs to each activity: limpeza_organizacao
     limpeza_organizacao_P39.assign_attributes(
@@ -1871,7 +1891,7 @@ def build_model(final_simulation_time=None, event_logger=None, verbose=True,
     # Assign revenue at discharge (based on patient complexity)
     def calculate_revenue():
         """Revenue varies by patient complexity"""
-        return random.uniform(1400, 1600) # Revenue: $ 1514
+        return random.uniform(800, 1100) # Revenue: $ 1514
     
     discharge_srpa.assign_attributes(revenue=calculate_revenue)                
     # ================================================================
@@ -1892,7 +1912,7 @@ def simulation_wrapper(seed=None, until=None, warm_up_period=None):
 
     # Create configuration
     config = SimulationConfig(
-        duration=36*DAYS,
+        duration=31*DAYS,
         warm_up_period=3*DAYS,        
         seed=123,
         check_stability=True
@@ -1933,7 +1953,7 @@ def run_replications():
         base_seed=12345,
         # until=365*DAYS,
         # warm_up_period=30*DAYS
-        until=36*DAYS,
+        until=31*DAYS,
         warm_up_period=3*DAYS
     )
 
@@ -2008,7 +2028,7 @@ def factorial_analysis():
         n_replications=5,
         # simulation_time=365*DAYS,  # 40 hours
         # warm_up_period=30*DAYS,    # 7 hours
-        simulation_time=36*DAYS,  # 40 hours
+        simulation_time=31*DAYS,  # 40 hours
         warm_up_period=3*DAYS,    # 7 hours
         verbose=True
     )
@@ -2054,7 +2074,7 @@ def main():
         # until=20
         # duration=24*HOURS,
         # warm_up_period=2*HOURS,
-        duration=36*DAYS,
+        duration=31*DAYS,
         warm_up_period=3*DAYS,        
         seed=321,
         check_stability=True
