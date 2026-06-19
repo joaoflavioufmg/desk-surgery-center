@@ -58,8 +58,8 @@ from desk.analytics.report_builder import MasterReportBuilder
 # are intentionally independent of this number — weekends will always be
 # ~55–69 % of whatever daily volume you set here.
 
-BASE_ARRIVALS_PER_DAY = 16    # Base
-# BASE_ARRIVALS_PER_DAY = 19      # Cenario 20% aumento da demanda
+# BASE_ARRIVALS_PER_DAY = 16    # Base
+BASE_ARRIVALS_PER_DAY = 30      # Aumento médio de cirurgias nas salas 2,3,5 e 6 (2-> 6) 30 por dia
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
@@ -218,6 +218,7 @@ BACKGROUND_SCHEDULE = {
     ],
 }
 
+
 # Set to False to disable background load and restore original behaviour.
 ENABLE_BACKGROUND_WORKLOAD = True
 # ENABLE_BACKGROUND_WORKLOAD = False
@@ -228,31 +229,41 @@ ENABLE_BACKGROUND_WORKLOAD = True
 # Resources NOT listed here keep their default capacity unchanged.
 # ---------------------------------------------------------------
 RESOURCE_SCHEDULE = {
+    # Proposed New Configurations
+    # Eq. Médica & Anestesista (current total ~96 staff-hours/day each)
+    # Rationale: Extra 1 during core day covers the ~13 arrivals in 8-18h window. 
+    # Night reduction is safe given low arrivals (~1 total 0-6h).
     "Eq_Medica": [
-        ( 0,  7, 3), # A confirmar
-        ( 7, 19, 5), # Inicio do dio (eletivas + urgencias)        
-        (19, 24, 3),        
+        ( 0,  7, 2), # Reduce from 3 → save hours
+        ( 7, 19, 6), # Increase from 5 → handle peak + eletivas/urgências
+        (19, 24, 3), # Keep or slight increase if evening urgencies justify       
     ],
     "Anestesista": [
-        ( 0,  7, 3), # A confirmar
-        ( 7, 19, 5), # Inicio do dio (eletivas + urgencias)        
-        (19, 24, 3),        
+        ( 0,  7, 2), # Reduce from 3 → save hours
+        ( 7, 19, 6), # Increase from 5 → handle peak + eletivas/urgências
+        (19, 24, 3), # Keep or slight increase if evening urgencies justify       
     ],
+    # Enfermeiro (current ~30 staff-hours)
+    # Rationale: Boost early day (7-13h) when first big wave hits. 
+    # Total hours stay ~30-32.
     "Enfermeiro": [
-        (0,   7, 1),
-        (7,  13, 1), # Inicio do dio
-        (13, 19, 2),
-        (19, 24, 1),
+        (0, 7, 1),     # Keep
+        (7, 13, 2),    # Increase from 1
+        (13, 19, 2),   # Keep
+        (19, 24, 1)    # Keep,
     ],
     "Farmacia": [
         (0,   6, 2),
         (6,  18, 2), # Dio todo        
         (18, 24, 2), # Troca a equipe mas mantem a quantidade até 7AM
     ],
+    # Tec. Enfermagem (current ~204 staff-hours — quite high)
+    # Rationale: Daytime surge support for patient throughput (sala + corredor). 
+    # Still very generous coverage.
     "Tec_Enfermagem": [
-        ( 0,  7,  7), # Ao todo sao 7, mas sao demandados 3 ou 4        
-        ( 7, 19, 10), # Inicio do dio
-        (19, 24,  7),        
+        (0, 7, 6),    # Reduce slightly from 7
+        (7, 19, 12),  # Increase from 10
+        (19, 24, 6)   # Reduce from 7,        
     ],
     "Tec_Radiologia": [
         (0,   7, 1),
@@ -271,6 +282,7 @@ RESOURCE_SCHEDULE = {
     ],
     # add other resources as needed ...
 }
+
 
 # ---------------------------------------------------------------
 # Generic time-dependent arrival

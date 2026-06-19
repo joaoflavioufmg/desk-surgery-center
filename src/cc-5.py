@@ -58,8 +58,8 @@ from desk.analytics.report_builder import MasterReportBuilder
 # are intentionally independent of this number — weekends will always be
 # ~55–69 % of whatever daily volume you set here.
 
-BASE_ARRIVALS_PER_DAY = 16    # Base
-# BASE_ARRIVALS_PER_DAY = 19      # Cenario 20% aumento da demanda
+# BASE_ARRIVALS_PER_DAY = 16    # Base
+BASE_ARRIVALS_PER_DAY = 16      # Base + Sabado 
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
@@ -218,6 +218,7 @@ BACKGROUND_SCHEDULE = {
     ],
 }
 
+
 # Set to False to disable background load and restore original behaviour.
 ENABLE_BACKGROUND_WORKLOAD = True
 # ENABLE_BACKGROUND_WORKLOAD = False
@@ -272,6 +273,7 @@ RESOURCE_SCHEDULE = {
     # add other resources as needed ...
 }
 
+
 # ---------------------------------------------------------------
 # Generic time-dependent arrival
 # ---------------------------------------------------------------
@@ -315,14 +317,29 @@ ARRIVAL_SLOTS_WEEKDAY = [
 # Fractions must also sum to 1.0 — they represent the SHAPE of
 # the within-day distribution; the VOLUME is governed by wf × base.
 ARRIVAL_SLOTS_WEEKEND = [
-    ( 0,  6, 0.030),   # 00–06h:  3.0%  — overnight urgencies only
-    ( 6,  8, 0.210),   # 06–08h: 21.0%  — morning ramp-up
-    ( 8, 10, 0.280),   # 08–10h: 28.0%  — peak
-    (10, 12, 0.220),   # 10–12h: 22.0%  — late morning
-    (12, 14, 0.140),   # 12–14h: 14.0%  — afternoon taper
-    (14, 16, 0.080),   # 14–16h:  8.0%  — low afternoon
-    (16, 24, 0.040),   # 16–24h:  4.0%  — evening/night minimal
+    ( 0,  2, 0.035),   # 00–02h:  3.5%
+    ( 2,  4, 0.009),   # 02–04h:  0.9%
+    ( 4,  6, 0.010),   # 04–06h:  1.0%
+    ( 6,  8, 0.186),   # 06–08h: 18.6%
+    ( 8, 10, 0.111),   # 08–10h: 11.1%
+    (10, 12, 0.151),   # 10–12h: 15.1%
+    (12, 14, 0.108),   # 12–14h: 10.8%
+    (14, 16, 0.125),   # 14–16h: 12.5%
+    (16, 18, 0.106),   # 16–18h: 10.6%
+    (18, 20, 0.035),   # 18–20h:  3.5%
+    (20, 22, 0.063),   # 20–22h:  6.3%
+    (22, 24, 0.061),   # 22–00h:  6.1%
 ]
+
+# [
+#     ( 0,  6, 0.030),   # 00–06h:  3.0%  — overnight urgencies only
+#     ( 6,  8, 0.210),   # 06–08h: 21.0%  — morning ramp-up
+#     ( 8, 10, 0.280),   # 08–10h: 28.0%  — peak
+#     (10, 12, 0.220),   # 10–12h: 22.0%  — late morning
+#     (12, 14, 0.140),   # 12–14h: 14.0%  — afternoon taper
+#     (14, 16, 0.080),   # 14–16h:  8.0%  — low afternoon
+#     (16, 24, 0.040),   # 16–24h:  4.0%  — evening/night minimal
+# ]
 # Validate: 0.030+0.210+0.280+0.220+0.140+0.080+0.040 = 1.000 ✓
 
 # Keep the old name as an alias so any external reference still works.
@@ -355,8 +372,8 @@ WEEKDAY_FACTORS = {
     2: 16.17 / _HIST_GLOBAL_MEAN,  # Quarta-feira   (Wednesday) ≈ 1.125  ← start_day_of_week=2
     3: 17.31 / _HIST_GLOBAL_MEAN,  # Quinta-feira   (Thursday)  ≈ 1.204
     4: 15.54 / _HIST_GLOBAL_MEAN,  # Sexta-feira    (Friday)    ≈ 1.081
-    5:  9.92 / _HIST_GLOBAL_MEAN,  # Sábado         (Saturday)  ≈ 0.690  ← weekend
-    6:  7.85 / _HIST_GLOBAL_MEAN,  # Domingo        (Sunday)    ≈ 0.546  ← weekend
+    5: 16.17 / _HIST_GLOBAL_MEAN,  # Sábado: 9.92         (Saturday)  ≈ 0.690  ← weekend
+    6:  7.85 / _HIST_GLOBAL_MEAN,  # Domingo: 7.85        (Sunday)    ≈ 0.546  ← weekend
 }
 # Scenario examples with BASE_ARRIVALS_PER_DAY:
 #   BASE=14.38 → Sat≈9.92,  Sun≈7.85  (historical baseline)

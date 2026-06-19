@@ -58,8 +58,8 @@ from desk.analytics.report_builder import MasterReportBuilder
 # are intentionally independent of this number — weekends will always be
 # ~55–69 % of whatever daily volume you set here.
 
-BASE_ARRIVALS_PER_DAY = 16    # Base
-# BASE_ARRIVALS_PER_DAY = 19      # Cenario 20% aumento da demanda
+# BASE_ARRIVALS_PER_DAY = 16    # Base
+BASE_ARRIVALS_PER_DAY = 30      # Aumento médio de cirurgias nas salas 2,3,5 e 6 (2-> 6) 30 por dia
 
 # Capacidades Padrão (Default)
 DEFAULT_CAPACITIES = {
@@ -217,6 +217,7 @@ BACKGROUND_SCHEDULE = {
         (19, 24, 0.30),
     ],
 }
+
 
 # Set to False to disable background load and restore original behaviour.
 ENABLE_BACKGROUND_WORKLOAD = True

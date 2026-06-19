@@ -26,6 +26,7 @@ from desk.validation.warmup import WarmUpAnalyzer
 from desk.config.simulation_config import SimulationConfig
 from desk.visualization.interface import run_visualization
 
+from desk.analytics.report_builder import MasterReportBuilder
 
 # ================================================================
 # Each ACD model is implemented here
@@ -165,56 +166,57 @@ BACKGROUND_WORKLOAD = {
 BACKGROUND_SCHEDULE = {
     # Resource           [(start_h, end_h, load_factor), ...]
     "Enfermeiro": [
-        ( 0,  6, 0.05),   # night  — near idle
-        ( 6, 18, 1.00),   # day    — full background load
-        (18, 24, 0.20),   # evening — reduced
+        ( 0,  7, 0.05),   # night  — near idle
+        ( 7, 19, 1.00),   # day    — full background load
+        (19, 24, 0.20),   # evening — reduced
     ],
     "Farmacia": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
+        ( 0,  7, 0.05),
+        ( 7, 19, 1.00),
+        (19, 24, 0.20),
     ],
     "Tec_Enfermagem": [
-        ( 0,  6, 0.10),
-        ( 6, 18, 1.00),
-        (18, 24, 0.25),
+        ( 0,  7, 0.10),
+        ( 7, 19, 1.00),
+        (19, 24, 0.25),
     ],
     "Eq_Assistencial_CTI": [
-        ( 0,  6, 0.10),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
+        ( 0,  7, 0.10),
+        ( 7, 19, 1.00),
+        (19, 24, 0.20),
     ],
     "Eq_Medica": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
+        ( 0,  7, 0.05),
+        ( 7, 19, 1.00),
+        (19, 24, 0.20),
     ],
     "Anestesista": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.15),
+        ( 0,  7, 0.05),
+        ( 7, 19, 1.00),
+        (19, 24, 0.15),
     ],
     "Tec_Radiologia": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
+        ( 0,  7, 0.05),
+        ( 7, 19, 1.00),
+        (19, 24, 0.20),
     ],
     "Eq_Radiologia": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
+        ( 0,  7, 0.05),
+        ( 7, 19, 1.00),
+        (19, 24, 0.20),
     ],
     "Func_CME": [
-        ( 0,  6, 0.05),
-        ( 6, 18, 1.00),
-        (18, 24, 0.20),
+        ( 0,  7, 0.05),
+        ( 7, 19, 1.00),
+        (19, 24, 0.20),
     ],
     "Eq_Higienizacao": [
-        ( 0,  6, 0.10),
-        ( 6, 18, 1.00),
-        (18, 24, 0.30),
+        ( 0,  7, 0.10),
+        ( 7, 19, 1.00),
+        (19, 24, 0.30),
     ],
 }
+
 
 # Set to False to disable background load and restore original behaviour.
 ENABLE_BACKGROUND_WORKLOAD = True
@@ -259,7 +261,7 @@ RESOURCE_SCHEDULE = {
     # Still very generous coverage.
     "Tec_Enfermagem": [
         (0, 7, 6),    # Reduce slightly from 7
-        (7, 19, 11),  # Increase from 10
+        (7, 19, 12),  # Increase from 10
         (19, 24, 6)   # Reduce from 7,        
     ],
     "Tec_Radiologia": [
@@ -279,6 +281,7 @@ RESOURCE_SCHEDULE = {
     ],
     # add other resources as needed ...
 }
+
 
 # ---------------------------------------------------------------
 # Generic time-dependent arrival
@@ -1929,7 +1932,7 @@ def simulation_wrapper(seed=None, until=None, warm_up_period=None):
 
     # model = build_model(event_logger)
     model = build_model(config.duration, event_logger, verbose=False)    
-    
+
     # model.run_simulation(
     #     until=until or 24*60,
     #     seed=seed,
@@ -2093,6 +2096,11 @@ def main():
     # model = build_model(event_logger)
     # model = build_model(config.duration, event_logger, verbose=True)
     model = build_model(config.duration, event_logger, verbose=False)
+
+
+    # --- NEW: create the builder right after the model exists ---
+    builder = MasterReportBuilder(model, run_name="cc")
+    
     
     
     # Check stability BEFORE running (optional)
@@ -2100,6 +2108,15 @@ def main():
     stability_analyzer = StabilityAnalyzer(model)
     stability = stability_analyzer.check_system_stability()
     model.stability_result = stability
+
+
+    def _replay_stability_result():
+        # Cheap: just re-prints the cached result, no re-sampling.
+        print(f"🎯 STABILITY INDEX: {stability:.2f}")
+        stability_analyzer._print_stability_assessment(stability)
+ 
+    builder.add_section("SYSTEM STABILITY CHECK", _replay_stability_result)
+
     
     # Run simulation
     print("\nRunning simulation (replication)...")
@@ -2180,11 +2197,12 @@ def main():
     # pause_simulation()
     # model.trace_entities(['Patient_1', 'Patient_2', 'Patient_3'])
     
+
     # ========================================
     # Trace statistics
     # ========================================
     model.print_trace_statistics()
-    pause_simulation()
+    # pause_simulation()
 
         
     print("\n" + "="*60)
@@ -2213,86 +2231,64 @@ def main():
         )
     print("="*70)
 
+
+    # --- CHANGED: reporting tail now goes through the builder ---
     reporter = SimulationReporter(model)
-    reporter.print_results()
-    
-    # 3. Warm-up analysis
-    print("\nAnalyzing warm-up period...")
     warmup_analyzer = WarmUpAnalyzer(model)
-    warmup_analyzer.analyze_warm_up_period()
-    
-    # 4. Plotting
-    print("\nPlotting resourse use over time...")
+    financial_analyzer = FinancialAnalyzer(model)
+ 
+    builder.add_section("SIMULATION RESULTS", reporter.print_results)
+    builder.add_section("WARM-UP PERIOD ANALYSIS", warmup_analyzer.analyze_warm_up_period)
+    builder.add_section("ACTIVITY METRICS", reporter._print_activity_metrics)
+    builder.add_section("RESOURCE METRICS", reporter._print_resource_metrics)
+    builder.add_section("ENTITY COUNTS", reporter._print_entity_counts)
+    builder.add_section("BLOCK STATISTICS", reporter._print_block_statistics)
+    builder.add_section("FINANCIAL BALANCE SHEET", financial_analyzer.print_financial_summary)
+        
+    # Runs every section, mirrors to terminal as before, and writes ONE file.
+    report_path = builder.run_and_save(output_dir="results")    
+    print(f"Report successfully saved to: {report_path}")
+    # -> results/checkout_model_v3_report_20260618_143000.txt
+
+
+
+    # print("\nResults...")
+    # reporter.print_results()
+    # print("\nAnalyzing warm-up period...")
+    # warmup_analyzer.analyze_warm_up_period()
+    # print("\nActivity metrics...")
+    # reporter._print_activity_metrics()
+    # print("\nResourse summary...")
+    # reporter._print_resource_metrics()
+    # reporter._print_entity_counts()
+    # reporter._print_block_statistics()
+    # print("\nFinancial analysys...")
+    # financial_analyzer.print_financial_summary()
+
+
+    # Plotting    
     plotter = SimulationPlotter(model)
     
     # # Plot resource utilization over time    
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Enfermeiro', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Farmacia', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Enfermagem', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Assistencial_CTI', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Medica', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Anestesista', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Radiologia', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Func_CME', moving_average_window=50)
-    plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)
-    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='sala_CC', moving_average_window=50)
-    plotter.plot_wip_over_time()
-
-    def plot_cc_wip(model):
-        if not model.wip_cc_log:
-            return
-
-        times = [t for t, _ in model.wip_cc_log]
-        wip   = [v for _, v in model.wip_cc_log]
-
-        plt.figure(figsize=(12,6))
-        plt.step(
-            times,
-            wip,
-            where="post",
-            linewidth=1.5,
-            label="CC WIP"
-        )
-        plt.axhline(
-            y=5,
-            linestyle="--",
-            label="CC Capacity"
-        )
-        plt.ylim(0, 5.5)
-        plt.xlabel("Simulation Time")
-        plt.ylabel("Patients inside CC")
-        plt.title("Centro Cirúrgico WIP")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
-
-    # plot_cc_wip(model) 
-
-    plotter.plot_system_time_distribution()
-    
-    
-
-    # Plot activity metrics
-    print("\nPlotting activity metrics...")
-    reporter._print_activity_metrics()
-    plotter.plot_activity_metrics()
-
-        
-    # Plot resource utilization summary
-    print("\nPlotting resourse summary...")
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Enfermeiro', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Farmacia', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Enfermagem', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Assistencial_CTI', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Medica', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Anestesista', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Tec_Radiologia', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Func_CME', moving_average_window=50)
+    # plotter.plot_resource_use_over_time(show_warm_up=True, resource='Eq_Higienizacao', moving_average_window=50)    
+    # plotter.plot_wip_over_time() 
+    # plotter.plot_system_time_distribution()
+    # plotter.plot_activity_metrics()
     plotter.plot_resources_utilization()
-    reporter._print_resource_metrics()
-    reporter._print_entity_counts()
-    reporter._print_block_statistics()
-
-    
-    # Financial analysis
-    print("\nPlotting financial analysys...")
-    financial_analyzer = FinancialAnalyzer(model)
-    financial_analyzer.print_financial_summary()
     financial_analyzer.plot_financial_breakdown()
 
-    # 5. Export event log
+    
+    
+
+    # Export event log
     print("\nExporting event log...")
     df = event_logger.export_to_csv("results/cc_event_log.csv")
     print(f"\nFirst 10 events:")
