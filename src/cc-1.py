@@ -251,9 +251,9 @@ RESOURCE_SCHEDULE = {
         (18, 24, 2), # Troca a equipe mas mantem a quantidade até 7AM
     ],
     "Tec_Enfermagem": [
-        ( 0,  7,  7), # Ao todo sao 7, mas sao demandados 3 ou 4        
-        ( 7, 19, 10), # Inicio do dio
-        (19, 24,  7),        
+        ( 0,  7, 4), # Ao todo sao 7, mas sao demandados 3 ou 4        
+        ( 7, 19, 6), # Inicio do dio
+        (19, 24, 4),        
     ],
     "Tec_Radiologia": [
         (0,   7, 1),

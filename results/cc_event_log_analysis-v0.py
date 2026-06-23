@@ -232,13 +232,9 @@ daily_cancelled = cancelled_events.groupby("day").size().reindex(daily_avg["day"
 # Fusão dos dados do painel 2
 metrics_day = daily_avg.merge(daily_completed, on="day").merge(daily_cancelled, on="day")
 
-# CÁLCULO DAS MÉDIAS E DESVIOS-PADRÃO GERAIS DIÁRIOS PARA O SUBTÍTULO
+# CÁLCULO DAS MÉDIAS GERAIS DIÁRIAS PARA O SUBTÍTULO
 mean_completed_day = metrics_day["total_completed"].mean()
-stdev_completed_day = metrics_day["total_completed"].std()
 mean_cancelled_day = metrics_day["total_cancelled"].mean()
-stdev_cancelled_day = metrics_day["total_cancelled"].std()
-mean_avg_census = metrics_day["avg_census"].mean()
-stdev_avg_census = metrics_day["avg_census"].std()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. MÉTRICA 3: TAXA DE OCUPAÇÃO REAL POR RECURSO INDIVIDUAL CONSOLIDADO
@@ -282,15 +278,7 @@ resource_utilization_pct = resource_utilization_pct.loc[resource_utilization_pct
 print("Renderizando dashboard interativo unificado...")
 
 # Montagem das strings de títulos com as quebras de linha e subtextos configurados
-sub_chart_2 = (
-    f"<b>PERFIL DIÁRIO: CENSO MÉDIO E DESEMPENHO CIRÚRGICO ACUMULADO</b><br>"
-    f"<span style='font-size:12px; color:{COLORS['subtext']}'>"
-    f"Horizonte: {SIM_DURATION:,} min | "
-    f"Média de Pacientes no CC / Dia: {mean_avg_census:.2f} ± {stdev_avg_census:.2f} | "
-    f"Média de Cirurgias Concluídas / Dia: {mean_completed_day:.2f} ± {stdev_completed_day:.2f} | "
-    f"Média de Cirurgias Canceladas / Dia: {mean_cancelled_day:.2f} ± {stdev_cancelled_day:.2f}"
-    f"</span>"
-)
+sub_chart_2 = f"<b>PERFIL DIÁRIO: CENSO MÉDIO E DESEMPENHO CIRÚRGICO ACUMULADO</b><br><span style='font-size:12px; color:{COLORS['subtext']}'>Horizonte: {SIM_DURATION:,} min | Média de Cirurgias Concluídas / Dia: {mean_completed_day:.2f} | Média de Cirurgias Canceladas / Dia: {mean_cancelled_day:.2f}</span>"
 
 fig = make_subplots(
     rows=3, cols=1,

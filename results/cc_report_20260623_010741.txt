@@ -1,0 +1,558 @@
+######################################################################
+# CONSOLIDATED SIMULATION REPORT
+# Run: cc
+# Generated: 2026-06-23 01:07:41
+######################################################################
+
+======================================================================
+>>> SYSTEM STABILITY CHECK
+======================================================================
+🎯 STABILITY INDEX: 5.38
+✅ Oversized system (capacity >> demand)
+
+======================================================================
+>>> SIMULATION RESULTS
+======================================================================
+============================================================
+📊 SIMULATION RESULTS (⏳ Duration: 744 hours)
+WARM-UP: 72 hours | STATISTICS PERIOD: 672 hours
+============================================================
+
+STABILITY INDEX: 5.38
+STATUS: Oversized system
+
+⏰ Average time in the system: 4.88 horas
+👥 Total number of entities processed: 432
+⚙️  Throughput: 0.64 entities/hour
+📋 Active resources: ['Enfermeiro', 'Farmacia', 'Tec_Enfermagem', 'Eq_Assistencial_CTI', 'Eq_Medica', 'Anestesista', 'Tec_Radiologia', 'Eq_Radiologia', 'Func_CME', 'Eq_Higienizacao']
+
+NOTE: Statistics based only on the post-warm-up period
+   (t > 72.0 hours)
+
+WORK IN PROCESS (WIP) METRICS:
+  Average WIP: 3.12 entities
+  Maximum WIP: 14 entities
+  Current WIP: 2 entities
+
+TOTAL TIME IN SYSTEM:
+  Average: 292.70 time units
+  Std Dev: 151.70
+  Min: 91.15
+  Max: 1006.62
+  Median: 253.89
+  Based on: 432 entities
+
+LITTLE'S LAW VERIFICATION:
+  L (Avg WIP): 3.12
+  lambda (Throughput): 0.0107 entities/time unit
+  W (Avg Time): 292.70 time units
+  Expected WIP (lambda * W): 3.14
+  Difference: 0.4%
+  Status: Excellent match (Little's Law verified)
+
+======================================================================
+>>> WARM-UP PERIOD ANALYSIS
+======================================================================
+
+🔍 WARM-UP ANALYSIS:
+==================================================
+📋 Enfermeiro:
+   System may not be completely stabilized
+   Final average usage: 59.0%
+📋 Farmacia:
+   System may not be completely stabilized
+   Final average usage: 52.0%
+📋 Tec_Enfermagem:
+   Stabilization detected at: t=2741.8
+   Warm-up suggested: 3290.2 (20% margin)
+   Final average usage: 106.0%
+📋 Eq_Assistencial_CTI:
+   System may not be completely stabilized
+   Final average usage: 39.0%
+📋 Eq_Medica:
+   Stabilization detected at: t=10257.3
+   Warm-up suggested: 12308.8 (20% margin)
+   Final average usage: 55.3%
+📋 Anestesista:
+   Stabilization detected at: t=2352.8
+   Warm-up suggested: 2823.4 (20% margin)
+   Final average usage: 31.2%
+📋 Tec_Radiologia:
+   System may not be completely stabilized
+   Final average usage: 57.5%
+📋 Eq_Radiologia:
+   System may not be completely stabilized
+   Final average usage: 45.5%
+📋 Func_CME:
+   System may not be completely stabilized
+   Final average usage: 50.0%
+📋 Eq_Higienizacao:
+   System may not be completely stabilized
+   Final average usage: 55.5%
+
+RECOMMENDATIONS:
+• Please note the charts to identify when usage stabilizes
+• The warm-up period should last at least until the stabilization point
+• Use a 20-30% additional margin on the stabilization time
+• Complex systems may require a longer warm-up period
+==================================================
+
+======================================================================
+>>> ACTIVITY METRICS
+======================================================================
+
+======================================================================
+>>> RESOURCE METRICS
+======================================================================
+
+======================================================================
+RESOURCE CONFIGURATION SUMMARY
+======================================================================
+
+Resource: Anestesista
+  Type: Resource
+  Capacity: 5 units
+  Used by 9 block(s):
+    - Check_Cir_Seg: 1 units (20% of capacity)
+    - Ato_Anest: 1 units (20% of capacity)
+    - Cir_Pequena_015: 1 units (20% of capacity)
+    - Cir_Pequena_015R: 1 units (20% of capacity)
+    - Cir_Media_015: 1 units (20% of capacity)
+    - Cir_Media_015R: 1 units (20% of capacity)
+    - Cir_Grande_015: 1 units (20% of capacity)
+    - Cir_Grande_015R: 1 units (20% of capacity)
+    - Conf_Registros: 1 units (20% of capacity)
+  Maximum single allocation: 1 units (20% of capacity)
+
+Resource: Enfermeiro
+  Type: Resource
+  Capacity: 1 units
+  Used by 1 block(s):
+    - Aviso_Cir: 1 units (100% of capacity)
+  Maximum single allocation: 1 units (100% of capacity)
+
+Resource: Eq_Assistencial_CTI
+  Type: Resource
+  Capacity: 1 units
+  Used by 1 block(s):
+    - Transp_CTI_CC: 1 units (100% of capacity)
+  Maximum single allocation: 1 units (100% of capacity)
+
+Resource: Eq_Higienizacao
+  Type: Resource
+  Capacity: 2 units
+  Used by 1 block(s):
+    - Limpa_Sala_CC: 1 units (50% of capacity)
+  Maximum single allocation: 1 units (50% of capacity)
+
+Resource: Eq_Medica
+  Type: Resource
+  Capacity: 3 units
+  Used by 14 block(s):
+    - Check_Cir_Seg: 1 units (33% of capacity)
+    - Cir_Pequena_025: 1 units (33% of capacity)
+    - Cir_Pequena_015: 1 units (33% of capacity)
+    - Cir_Pequena_015R: 1 units (33% of capacity)
+    - Cir_Pequena_060: 1 units (33% of capacity)
+    - Cir_Media_025: 1 units (33% of capacity)
+    - Cir_Media_015: 1 units (33% of capacity)
+    - Cir_Media_015R: 1 units (33% of capacity)
+    - Cir_Media_060: 1 units (33% of capacity)
+    - Cir_Grande_025: 1 units (33% of capacity)
+    - Cir_Grande_015: 1 units (33% of capacity)
+    - Cir_Grande_015R: 1 units (33% of capacity)
+    - Cir_Grande_060: 1 units (33% of capacity)
+    - Conf_Registros: 1 units (33% of capacity)
+  Maximum single allocation: 1 units (33% of capacity)
+
+Resource: Eq_Radiologia
+  Type: Resource
+  Capacity: 2 units
+  Used by 3 block(s):
+    - Cir_Pequena_015R: 1 units (50% of capacity)
+    - Cir_Media_015R: 1 units (50% of capacity)
+    - Cir_Grande_015R: 1 units (50% of capacity)
+  Maximum single allocation: 1 units (50% of capacity)
+
+Resource: Farmacia
+  Type: Resource
+  Capacity: 2 units
+  Used by 1 block(s):
+    - Monta_Kits: 1 units (50% of capacity)
+  Maximum single allocation: 1 units (50% of capacity)
+
+Resource: Func_CME
+  Type: Resource
+  Capacity: 1 units
+  Used by 1 block(s):
+    - Sep_MatSujo: 1 units (100% of capacity)
+  Maximum single allocation: 1 units (100% of capacity)
+
+Resource: Tec_Enfermagem
+  Type: Resource
+  Capacity: 3 units
+  Used by 20 block(s):
+    - Org_Sala_Kits: 1 units (33% of capacity)
+    - Transp_Ori_CC: 1 units (33% of capacity)
+    - Adm_Conf_Pac: 1 units (33% of capacity)
+    - Adm_Paciente: 1 units (33% of capacity)
+    - Check_Cir_Seg: 1 units (33% of capacity)
+    - Cir_Pequena_025: 1 units (33% of capacity)
+    - Cir_Pequena_015: 1 units (33% of capacity)
+    - Cir_Pequena_015R: 1 units (33% of capacity)
+    - Cir_Pequena_060: 1 units (33% of capacity)
+    - Cir_Media_025: 1 units (33% of capacity)
+    - Cir_Media_015: 1 units (33% of capacity)
+    - Cir_Media_015R: 1 units (33% of capacity)
+    - Cir_Media_060: 1 units (33% of capacity)
+    - Cir_Grande_025: 1 units (33% of capacity)
+    - Cir_Grande_015: 1 units (33% of capacity)
+    - Cir_Grande_015R: 1 units (33% of capacity)
+    - Cir_Grande_060: 1 units (33% of capacity)
+    - Conf_Registros: 1 units (33% of capacity)
+    - Remov_Residuos: 1 units (33% of capacity)
+    - Sep_MatSujo: 1 units (33% of capacity)
+  Maximum single allocation: 1 units (33% of capacity)
+
+Resource: Tec_Radiologia
+  Type: Resource
+  Capacity: 2 units
+  Used by 4 block(s):
+    - Cir_Pequena_015R: 1 units (50% of capacity)
+    - Cir_Media_015R: 1 units (50% of capacity)
+    - Cir_Grande_015R: 1 units (50% of capacity)
+    - Conf_Registros: 1 units (50% of capacity)
+  Maximum single allocation: 1 units (50% of capacity)
+
+----------------------------------------------------------------------
+DELAY-ONLY BLOCKS (No Resource Required):
+  Found 20 pure delay block(s):
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+    - Seize_Sala_CC (pure delay operation)
+    - Release_Sala_CC (pure delay operation)
+  Note: These blocks perform time delays without consuming resources.
+======================================================================
+
+📈 METRICS BY RESOURCE:
+  Enfermeiro (capacity: 1):
+    Utilization rate: 0.38
+    Time Busy: 14322.30 (35.5%)
+    Time Idle: 25596.82 (63.5%)
+    Maximum in queue: 2
+    Maximum in service: 2
+    Average number in queue: 0.04
+    Average number in service: 0.38
+    Analysis (💡): System operating within expected parameters.
+
+  Farmacia (capacity: 2):
+    Utilization rate: 0.35
+    Time Busy: 26032.92 (64.6%)
+    Time Idle: 13881.20 (34.4%)
+    Maximum in queue: 3
+    Maximum in service: 2
+    Average number in queue: 0.06
+    Average number in service: 0.70
+    Analysis (💡): System operating within expected parameters.
+
+  Tec_Enfermagem (capacity: 3):
+    Utilization rate: 1.28
+    Time Busy: 38266.28 (94.9%)
+    Time Idle: 2053.03 (5.1%)
+    Maximum in queue: 8
+    Maximum in service: 8
+    Average number in queue: 0.75
+    Average number in service: 3.85
+    Analysis (💡): Overloaded system (128.5%)! Consider expanding capacity.
+
+  Eq_Assistencial_CTI (capacity: 1):
+    Utilization rate: 0.05
+    Time Busy: 2024.28 (5.0%)
+    Time Idle: 38295.03 (95.0%)
+    Maximum in queue: 2
+    Maximum in service: 1
+    Average number in queue: 0.94
+    Average number in service: 0.05
+    Analysis (💡): Idle system (5.0%)! Consider adjusting capacity.
+
+  Eq_Medica (capacity: 3):
+    Utilization rate: 0.63
+    Time Busy: 33405.16 (82.9%)
+    Time Idle: 6910.73 (17.1%)
+    Maximum in queue: 4
+    Maximum in service: 6
+    Average number in queue: 0.14
+    Average number in service: 1.90
+    Analysis (💡): System operating within expected parameters.
+
+  Anestesista (capacity: 5):
+    Utilization rate: 0.42
+    Time Busy: 33757.34 (83.7%)
+    Time Idle: 6550.72 (16.2%)
+    Maximum in queue: 5
+    Maximum in service: 5
+    Average number in queue: 0.04
+    Average number in service: 2.12
+    Analysis (💡): System operating within expected parameters.
+
+  Tec_Radiologia (capacity: 2):
+    Utilization rate: 0.32
+    Time Busy: 21202.50 (52.6%)
+    Time Idle: 19084.41 (47.3%)
+    Maximum in queue: 3
+    Maximum in service: 2
+    Average number in queue: 0.08
+    Average number in service: 0.63
+    Analysis (💡): System operating within expected parameters.
+
+  Eq_Radiologia (capacity: 2):
+    Utilization rate: 0.33
+    Time Busy: 24699.59 (61.3%)
+    Time Idle: 15080.70 (37.4%)
+    Maximum in queue: 2
+    Maximum in service: 2
+    Average number in queue: 0.15
+    Average number in service: 0.66
+    Analysis (💡): System operating within expected parameters.
+
+  Func_CME (capacity: 1):
+    Utilization rate: 0.08
+    Time Busy: 3169.89 (7.9%)
+    Time Idle: 37149.43 (92.1%)
+    Maximum in queue: 3
+    Maximum in service: 1
+    Average number in queue: 0.17
+    Average number in service: 0.08
+    Analysis (💡): Idle system (7.9%)! Consider adjusting capacity.
+
+  Eq_Higienizacao (capacity: 2):
+    Utilization rate: 0.32
+    Time Busy: 21840.11 (54.2%)
+    Time Idle: 18475.79 (45.8%)
+    Maximum in queue: 3
+    Maximum in service: 2
+    Average number in queue: 0.11
+    Average number in service: 0.64
+    Analysis (💡): System operating within expected parameters.
+
+
+======================================================================
+>>> ENTITY COUNTS
+======================================================================
+
+Entities created: 487
+Entities disposed: 432
+Entities in the system: 55
+
+======================================================================
+>>> BLOCK STATISTICS
+======================================================================
+
+BLOCK STATISTICS:
+
+Cheg_CC (CreateBlock):
+
+Seize_Sala_CC (SalaCC_Seize):
+  Entities processed: 0
+
+Aviso_Cir (ProcessBlock):
+  Entities processed: 430
+  Average time in service: 5.00
+  Average time in queue: 0.67
+
+Monta_Kits (ProcessBlock):
+  Entities processed: 430
+  Average time in service: 5.00
+  Average time in queue: 2.59
+
+Org_Sala_Kits (ProcessBlock):
+  Entities processed: 431
+  Average time in service: 10.41
+  Average time in queue: 3.36
+
+Origem_Paciente (DecideBlock):
+  Decision counts: {'Pac_CTI': 59, 'Pac_Outros': 427}
+
+Transp_CTI_CC (ProcessBlock):
+  Entities processed: 51
+  Average time in service: 37.82
+  Average time in queue: 2.65
+
+Transp_Ori_CC (ProcessBlock):
+  Entities processed: 379
+  Average time in service: 14.64
+  Average time in queue: 3.81
+
+Adm_Conf_Pac (ProcessBlock):
+  Entities processed: 430
+  Average time in service: 1.69
+  Average time in queue: 3.46
+
+Adm_Paciente (ProcessBlock):
+  Entities processed: 430
+  Average time in service: 1.70
+  Average time in queue: 2.48
+
+Check_Cir_Seg (MultiProcessBlock):
+  Entities processed: 430
+  Average time in service: 1.70
+  Average time in queue: 3.79
+
+Ato_Anest (ProcessBlock):
+  Entities processed: 430
+  Average time in service: 27.37
+  Average time in queue: 0.36
+
+Porte_Cir (DecideBlock):
+  Decision counts: {'Cir Pequeno': 121, 'Cir Medio': 138, 'Cir Grande': 226}
+
+Faz_Rad_Cir_P (DecideBlock):
+  Decision counts: {'Cir_P_Sem_Radio': 80, 'Cir_P_Com_Radio': 41}
+
+Faz_Rad_Cir_M (DecideBlock):
+  Decision counts: {'Cir_M_Sem_Radio': 81, 'Cir_M_Com_Radio': 57}
+
+Faz_Rad_Cir_G (DecideBlock):
+  Decision counts: {'Cir_G_Sem_Radio': 145, 'Cir_G_Com_Radio': 80}
+
+Cir_Pequena_025 (MultiProcessBlock):
+  Entities processed: 103
+  Average time in service: 15.92
+  Average time in queue: 4.57
+
+Cir_Pequena_015 (MultiProcessBlock):
+  Entities processed: 67
+  Average time in service: 10.60
+  Average time in queue: 3.88
+
+Cir_Pequena_015R (MultiProcessBlock):
+  Entities processed: 36
+  Average time in service: 8.54
+  Average time in queue: 7.43
+
+Cir_Pequena_060 (MultiProcessBlock):
+  Entities processed: 103
+  Average time in service: 36.10
+  Average time in queue: 5.34
+
+Cir_Media_025 (MultiProcessBlock):
+  Entities processed: 122
+  Average time in service: 26.28
+  Average time in queue: 1.83
+
+Cir_Media_015 (MultiProcessBlock):
+  Entities processed: 74
+  Average time in service: 17.33
+  Average time in queue: 3.47
+
+Cir_Media_015R (MultiProcessBlock):
+  Entities processed: 48
+  Average time in service: 16.09
+  Average time in queue: 8.97
+
+Cir_Media_060 (MultiProcessBlock):
+  Entities processed: 122
+  Average time in service: 62.15
+  Average time in queue: 4.68
+
+Cir_Grande_025 (MultiProcessBlock):
+  Entities processed: 206
+  Average time in service: 25.12
+  Average time in queue: 3.30
+
+Cir_Grande_015 (MultiProcessBlock):
+  Entities processed: 131
+  Average time in service: 16.43
+  Average time in queue: 4.32
+
+Cir_Grande_015R (MultiProcessBlock):
+  Entities processed: 75
+  Average time in service: 14.93
+  Average time in queue: 5.98
+
+Cir_Grande_060 (MultiProcessBlock):
+  Entities processed: 206
+  Average time in service: 54.75
+  Average time in queue: 2.99
+
+Conf_Registros (MultiProcessBlock):
+  Entities processed: 431
+  Average time in service: 10.33
+  Average time in queue: 7.12
+
+Remov_Residuos (ProcessBlock):
+  Entities processed: 431
+  Average time in service: 2.14
+  Average time in queue: 3.58
+
+Sep_MatSujo (MultiProcessBlock):
+  Entities processed: 432
+  Average time in service: 2.19
+  Average time in queue: 7.52
+
+Limpa_Sala_CC (ProcessBlock):
+  Entities processed: 432
+  Average time in service: 12.14
+  Average time in queue: 3.55
+
+Release_Sala_CC (SalaCC_Release):
+  Entities processed: 0
+
+Saida_SRPA (DisposeBlock):
+
+======================================================================
+>>> FINANCIAL BALANCE SHEET
+======================================================================
+
+============================================================
+FINANCIAL BALANCE SHEET
+============================================================
+
+Based on 432 entities (post warm-up)
+
+REVENUE:
+  Total Revenue: $822,706.66
+  Average per Entity: $1,904.41
+
+COSTS BY ACTIVITY:
+  Cir: $1,325,187.39 (50.7%)
+  Ato: $368,202.03 (14.1%)
+  Limpa: $216,798.12 (8.3%)
+  Adm: $210,212.86 (8.0%)
+  Org: $142,343.92 (5.4%)
+  Check: $70,574.22 (2.7%)
+  Monta: $70,387.02 (2.7%)
+  Sep: $70,165.00 (2.7%)
+  Aviso: $70,110.93 (2.7%)
+  Remov: $69,935.86 (2.7%)
+  Transp: $215.68 (0.0%)
+
+  Total Costs: $2,614,133.03
+  Average per Entity: $6,051.23
+
+------------------------------------------------------------
+NET PROFIT: $-1,791,426.37
+   Average per Entity: $-4,146.82
+   Profit Margin: -217.7%
+   Operating at a loss!
+============================================================
+
+######################################################################
+# END OF REPORT
+######################################################################

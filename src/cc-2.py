@@ -260,9 +260,9 @@ RESOURCE_SCHEDULE = {
     # Rationale: Daytime surge support for patient throughput (sala + corredor). 
     # Still very generous coverage.
     "Tec_Enfermagem": [
-        (0, 7, 6),    # Reduce slightly from 7
-        (7, 19, 12),  # Increase from 10
-        (19, 24, 6)   # Reduce from 7,        
+        ( 0,  7, 3),    # Reduce slightly from 7
+        ( 7, 19, 7),  # Increase from 10
+        (19, 24, 4)   # Reduce from 7,        
     ],
     "Tec_Radiologia": [
         (0,   7, 1),
