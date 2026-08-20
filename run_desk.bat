@@ -4,7 +4,7 @@ echo EXECUTANDO PIPELINE DE SIMULACAO DO CENTRO CIRURGICO
 echo =========================================================
 
 echo [1/3] Executando o Modelo de Simulacao (cc.py)...
-@REM desk-sim -m src/cc.py --mode visualization
+desk-sim -m src/cc.py --mode visualization
 @REM desk-sim -m src/cc.py --mode single
 @REM CC-1: Aumento de 20% da demanda. De 16 -> 19 por dia
 @REM desk-sim -m src/cc-1.py --mode single           
@@ -21,7 +21,7 @@ echo [1/3] Executando o Modelo de Simulacao (cc.py)...
 @REM CC-7: Base + Atendimento aos sabados e domingos. 16 por dia
 @REM desk-sim -m src/cc-7.py --mode single
 @REM CC-8: Base + Atendimento aos sabados + 20% de demanda
-desk-sim -m src/cc-8.py --mode single
+@REM desk-sim -m src/cc-8.py --mode single
 @REM desk-sim -m src/cc.py --mode replications
 @REM desk-sim -m src/cc.py --mode factorial
 if %errorlevel% neq 0 (
